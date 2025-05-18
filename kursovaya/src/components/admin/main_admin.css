@@ -1,0 +1,107 @@
+.admin-wrapper {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 20px;
+    flex: 1;
+    font-family: 'Poppins', sans-serif;
+    background-color: #f9f9f9; /* Фон как у форм */
+}
+
+/* Левая панель со ссылками */
+.admin-box {
+    background-color: #ffffff; /* Белый вместо #ebebe8 */
+    border: 1px solid #a3c1bf; /* Цвет как у фокуса инпутов */
+    border-radius: 12px; /* Как у форм */
+    padding: 30px 40px; /* Чуть меньше padding */
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); /* Тень как у форм */
+    width: 60%;
+    max-width: 500px;
+}
+
+.admin-title {
+    font-size: 2em;
+    color: #0d2b36; /* Как заголовки форм */
+    margin-bottom: 25px; /* Чуть меньше отступ */
+    text-align: center; /* Центрируем как в формах */
+}
+
+.admin-link-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px; /* Чуть меньше отступ */
+}
+
+.admin-link {
+    text-decoration: none;
+    color: white;
+    font-size: 1.2em; /* Чуть меньше размер */
+    padding: 12px 15px; /* Как кнопки в формах */
+    border-radius: 8px; /* Как у кнопок */
+    transition: all 0.3s ease-in-out;
+    display: block;
+    text-align: center;
+    background-color: #a3c1bf;
+}
+
+.admin-link:hover {
+    background-color: #a3c1bf; /* Цвет кнопок */
+    color: white; /* Белый текст при наведении */
+    transform: scale(1.02); /* Более мягкое увеличение */
+    box-shadow: 0 2px 5px rgba(163, 193, 191, 0.3); /* Тень как у инпутов */
+}
+
+/* Правая панель со статистикой */
+.admin-stats {
+    background-color: #ffffff;
+    border: 1px solid #a3c1bf;
+    border-radius: 12px;
+    padding: 25px 30px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    width: 35%;
+    max-width: 300px;
+}
+
+.stats-title {
+    font-size: 1.5em; /* Чуть меньше */
+    color: #0d2b36;
+    margin-bottom: 20px;
+}
+
+.stats-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.stat-card {
+    background-color: #f9f9f9; /* Как фон форм */
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #a3c1bf;
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    box-shadow: 0 2px 5px rgba(163, 193, 191, 0.3);
+}
+
+.stat-card h3 {
+    font-size: 1em;
+    color: #0d2b36;
+    margin-bottom: 8px;
+}
+
+.stat-card p {
+    font-size: 1.5em; /* Чуть меньше */
+    color: #0d2b36;
+    margin: 0;
+}
+
+.stats-error {
+    color: #e74c3c; /* Ярко-красный для ошибок */
+    font-size: 0.9em;
+}

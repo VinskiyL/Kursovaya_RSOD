@@ -1,0 +1,94 @@
+/* Контейнер и заголовок */
+.container_new_order {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+    font-family: 'Poppins', sans-serif;
+}
+
+.h2 {
+    font-size: 2em;
+    margin-bottom: 20px;
+    color: #012;
+    font-weight: 700;
+    text-align: center;
+}
+
+/* Карточка формы */
+.container_new_order--form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    width: 100%;
+    max-width: 600px;      /* задаёт максимальную ширину всей формы */
+    margin: 0 auto;        /* центрирование по горизонтали */
+    padding: 30px 40px;
+    background-color: #f9f9f9;
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    /* наследуем выравнивание по умолчанию (stretch) */
+}
+
+/* Каждый элемент формы */
+.container_new_order--el {
+    width: 100%;
+}
+
+/* Подписи к полям */
+.h_result {
+    font-size: 1.1em;
+    margin-bottom: 5px;
+    color: #333;
+}
+
+/* Поля ввода */
+.container_new_order--form input[type="text"],
+.container_new_order--form input[type="number"],
+.container_new_order--form input[type="date"] {
+    width: 100%;
+    box-sizing: border-box;  /* чтобы padding и border = внутри width */
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-family: 'Poppins', sans-serif;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.container_new_order--form input:focus {
+    outline: none;
+    border-color: #a3c1bf;
+    box-shadow: 0 0 5px rgba(163, 193, 191, 0.5);
+}
+
+/* Кнопка «Заказать» */
+.new_order-button {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px;
+    font-size: 16px;
+    background-color: #a3c1bf;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'Poppins', sans-serif;
+    transition: transform 0.3s ease-in-out;
+}
+
+.new_order-button:hover {
+    transform: scale(1.05);
+}
+
+/* Сообщение об ошибке */
+.container_order p {
+    margin-top: 10px;
+    font-size: 1em;
+    text-align: center;
+}
+
+/* Только для ошибки, а не всего текста */
+.error-message {
+    color: red;
+}

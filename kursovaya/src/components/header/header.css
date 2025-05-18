@@ -1,0 +1,59 @@
+.header {
+    display: flex; /* Используем flexbox для выравнивания */
+    align-items: end;
+    position: relative;
+    background-color: #ebebe8;
+}
+.back{
+    position: sticky;
+    left:0;
+    top: 0;
+    width:100%;
+    z-index: 10;
+}
+.logo {
+    width: 7%; /* Ширина логотипа */
+    height: 7%; /* Высота логотипа */
+    display: flex;
+    justify-content: center; /* Центрирование содержимого */
+    border-radius: 5%; /* Округлая форма */
+    overflow: hidden; /* Скрытие лишней части */
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 1); /* Тень */
+
+}
+.logo img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: cover;
+    align-items: center; /* Это для выравнивания в flexbox, но здесь не нужно */
+}
+.h1, .h {
+    font-family: 'Poppins', sans-serif;
+    font-size: 2.0em; /* Размер шрифта */
+    color: #002137;
+    text-align: center; /* Выравнивание по центру, если нужно */
+    transition: all 0.3s ease-in-out;
+    margin: 20px;
+}
+.h1:hover{
+    transform: scale(1.1);
+    color: #9db2ad;
+}
+.h{
+    font-size: 1.1em; /* Размер шрифта */
+    transition: all 0.3s ease-in-out;
+}
+.h:hover{
+color: #9db2ad;
+}
+.a{
+text-decoration: none;
+}
+.a1{
+text-decoration: none;
+color: #4b3d3d;
+}
+.menu{
+display:inline-flex;
+margin-left: auto;
+}

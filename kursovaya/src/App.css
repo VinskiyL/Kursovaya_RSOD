@@ -1,0 +1,17 @@
+html, body {
+    margin: 0 1px;
+    padding: 0;
+    height: 100%;
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh; /* Минимальная высота на весь экран */
+}
+
+.content {
+    flex: 1; /* Заставляем основной контент занимать оставшееся пространство */
+}
+
+

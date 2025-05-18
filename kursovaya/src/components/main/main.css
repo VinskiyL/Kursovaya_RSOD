@@ -1,0 +1,162 @@
+.h2, .h_prev, .h_result{
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.5em;
+    transition: all 0.3s ease-in-out;
+    margin:0px;
+    padding: 7px;
+    margin-bottom: 15px;
+    color: #002137;
+}
+
+.h_result{
+    font-size: 1.2em;
+    padding: 2px;
+}
+
+.table:hover .img{
+    transform: scale(1.1);
+}
+
+.table:hover .h2{
+    color: #9db2ad;
+}
+
+
+.table, .table_prev{
+    text-decoration: none;
+    margin-top: 30px;
+}
+
+.main_prev {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+}
+
+.prev{
+    display: flex;
+    flex-wrap: wrap; /* Позволяет элементам переноситься на следующую строку */
+    justify-content: space-around; /* Выравнивание элементов */
+    margin-top: 20px;
+    align-items: flex-start;
+    background-color: #ebebe8;
+}
+
+.text_prev {
+    flex: 1;
+}
+
+.img_div_prev {
+    flex: 1;
+    text-align: right; /* Выравнивание картинки вправо */
+}
+
+.img_prev {
+    max-width: 50%; /* Адаптивное изображение */
+    height: auto;
+    border-radius: 1%;
+    overflow: hidden;
+}
+
+.main_tab {
+    display: flex;
+    flex-wrap: wrap; /* Позволяет элементам переноситься на следующую строку */
+    justify-content: space-around; /* Выравнивание элементов */
+    margin-top: 20px;
+}
+
+.table {
+    width: 45%; /* Ширина элементов */
+    margin-bottom: 20px; /* Отступ между строками */
+}
+
+.img {
+    max-width: 100%; /* Адаптивное изображение */
+    height: auto;
+    margin-bottom: 20px;
+    border-radius: 1%;
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 1);
+    overflow: hidden;
+    transition: all 0.3s ease-in-out;
+
+}
+
+.search-container {
+    width: 100%;
+    justify-content: center; /* Центрирование по горизонтали */
+    margin: 30px 0;
+}
+
+.search-container input:focus {
+    outline: none;
+    border-color: #a3c1bf;
+    box-shadow: 0 0 5px rgba(163, 193, 191, 0.5);
+}
+
+form {
+    width: 100%; /* Занимает всю ширину контейнера */
+    display: flex; /* Для размещения элементов в одну линию */
+}
+
+input[type="text"] {
+    flex: 1; /* Занимает все доступное пространство */
+    padding: 10px; /* Отступ внутри поля ввода */
+    border: 1px solid #ccc; /* Граница поля ввода */
+    border-radius: 4px; /* Закругленные углы */
+    font-size: 16px; /* Размер шрифта */
+}
+
+.search-button, .in-button {
+    background: none; /* Убираем фон кнопки */
+    border: none; /* Убираем границу кнопки */
+    cursor: pointer; /* Курсор при наведении */
+    padding: 0; /* Убираем отступы */
+    transition: all 0.3s ease-in-out;
+}
+
+.in-button:hover{
+    transform: scale(1.1);
+}
+
+.search-button:hover{
+        transform: scale(1.1);
+    }
+
+.search-icon {
+    width: 24px; /* Ширина иконки */
+    height: 24px; /* Высота иконки */
+}
+
+.result_{
+    border: 2px solid #002137; /* Цвет рамки */
+    border-radius: 8px; /* Закругление углов */
+    padding: 10px; /* Внутренний отступ */
+    margin: 15px 0; /* Отступ снизу для разделения элементов */
+    background-color: #f9f9f9; /* Цвет фона */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Тень для объема */
+    max-width:40%;
+}
+
+
+@media (max-width: 768px) {
+    .main_prev {
+        flex-direction: column; /* Элементы друг над другом на маленьких экранах */
+        align-items: center; /* Центрирование содержимого */
+    }
+
+    .text_prev, .img_div_prev {
+        text-align: center; /* Центрирование текста и изображения */
+        width: 100%; /* Полная ширина */
+    }
+
+    .main_tab {
+        flex-direction: column; /* Элементы в столбик на маленьких экранах */
+        align-items: center; /* Центрирование содержимого */
+    }
+
+    .table {
+        width: 80%; /* Увеличиваем ширину элементов для мобильных устройств */
+    }
+}
+

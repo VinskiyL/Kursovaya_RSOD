@@ -1,0 +1,117 @@
+.container_order--form {
+    display: flex; /* Используем flexbox для расположения элементов */
+    flex-direction: column; /* Располагаем элементы в столбик */
+}
+
+.container_order--el{
+    display: flex; /* Используем flexbox для расположения элементов */
+    flex-direction: column; /* Располагаем элементы в столбик */
+    max-width: 50%;
+}
+
+input:focus {
+    outline: none;
+    border-color: #a3c1bf;
+    box-shadow: 0 0 5px rgba(163, 193, 191, 0.5);
+}
+
+input[type="number"] {
+    flex: 1; /* Занимает все доступное пространство */
+    padding: 10px; /* Отступ внутри поля ввода */
+    border: 1px solid #ccc; /* Граница поля ввода */
+    border-radius: 4px; /* Закругленные углы */
+    font-size: 16px; /* Размер шрифта */
+}
+
+input[type="date"] {
+    flex: 1; /* Занимает все доступное пространство */
+    padding: 10px; /* Отступ внутри поля ввода */
+    border: 1px solid #ccc; /* Граница поля ввода */
+    border-radius: 4px; /* Закругленные углы */
+    font-size: 16px; /* Размер шрифта */
+}
+
+.order-button, .main_order-button{
+    background: none; /* Убираем фон кнопки */
+    border: none; /* Убираем границу кнопки */
+    cursor: pointer; /* Курсор при наведении */
+    padding: 0; /* Убираем отступы */
+    transition: all 0.3s ease-in-out;
+    margin: 5px auto;
+    margin-left: 0;
+}
+
+.order-button:hover{
+    transform: scale(1.1);
+}
+
+.main_order_container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px; /* Отступ между элементами */
+}
+
+.h2--order{
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.5em;
+    transition: all 0.3s ease-in-out;
+    margin:0px;
+    padding: 7px;
+    margin-bottom: 5px;
+    color: #002137;
+}
+
+.table--order{
+    text-decoration: none;
+    margin-top: 5px;
+    width: 45%; /* Ширина элементов */
+    margin-bottom: 5px; /* Отступ между строками */
+}
+
+.table--order:hover .h2--order{
+    color: #9db2ad;
+}
+
+.main_order-button {
+    background-color: #ebebe8; /* Указание цвета фона */
+    border-radius: 2px;
+    padding: 10px 20px; /* Отступы внутри кнопки (вертикально 15px, горизонтально 30px) */
+    text-align: center; /* Центрирование текста */
+    display: inline-block; /* Позволяет задать ширину и высоту кнопки */
+    font-size: 16px; /* Размер шрифта (по желанию) */
+    cursor: pointer; /* Указатель при наведении */
+    font-family: 'Poppins', sans-serif;
+}
+
+.main_order-button:hover{
+    transform: scale(1.1);
+}
+
+.add_book {
+    display: block; /* Изменено на block для центрирования */
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.1em;
+    color: white;
+    background-color: #a3c1bf;
+    padding: 12px 25px;
+    border: none;
+    border-radius: 8px;
+    text-decoration: none;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease-in-out;
+    margin: 0 auto 25px auto; /* Автоматические отступы по бокам для центрирования */
+    width: fit-content; /* Ширина по содержимому */
+    max-width: 95%; /* Максимальная ширина */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.add_book:hover {
+    background-color: #8fb0ad;
+    transform: scale(1.05);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.add_book:active {
+    transform: scale(0.98);
+}
