@@ -1,91 +1,117 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
-
-const Booking = () =>{
-    //TODO переделать запрос брони
-    const [query, setQuery] = useState('bc.index,title,information_publication,quantity,date_issue,date_return,b.id kursovaya."Books_catalog"');
-    const [results, setResults] = useState([]);
+import apiClient from '../../api/client';
+//TODO css
+const Booking = () => {
+    const [bookings, setBookings] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [searchTerm, setSearchTerm] = useState(''); // Состояние для поиска
+    const [searchTerm, setSearchTerm] = useState('');
 
-    const fetchData = async () => {
+    const fetchBookings = async () => {
+        setLoading(true);
         setError('');
         try {
-            const response = await axios.get(`https://kursovaya.local/booking.php`, {
-                params: { query },
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                withCredentials: true,
-            });
-            setResults(response.data.data || []);
+            const response = await apiClient.get('/bookings/my/');
+
+            if (Array.isArray(response?.data)) {
+                setBookings(response.data);
+            } else if (response?.data?.results) {
+                setBookings(response.data.results);
+            } else {
+                console.error('Неожиданный формат ответа:', response.data);
+                setError('Ошибка формата данных');
+                setBookings([]);
+            }
         } catch (err) {
-            setError('Произошла ошибка при поиске.');
-            console.error('Ошибка при выполнении запроса:', err.response ? err.response.data : err.message);
+            setError(err.response?.data?.message || 'Ошибка при загрузке бронирований');
+            console.error('Полная ошибка:', {
+                message: err.message,
+                status: err.response?.status,
+                data: err.response?.data
+            });
+            setBookings([]);
+        } finally {
+            setLoading(false);
         }
     };
 
-    const handleBooking = async (index) => {
+    const cancelBooking = async (bookingId) => {
         try {
-            const response = await axios.get(`https://kursovaya.local/deleteBooking.php`, {
-                params: { index }, withCredentials: true,
-            });
+            const response = await apiClient.delete(`/bookings/${bookingId}/`);
 
-            const result = response.data;
-            if (result.success) {
+            if (response.status === 204) {
                 alert('Бронирование успешно отменено!');
-                fetchData();
-            } else {
-                alert('Не удалось отменить бронирование. Попробуйте снова.');
+                fetchBookings();
             }
-        } catch (error) {
-            console.error('Ошибка:', error);
-            alert('Произошла ошибка. Попробуйте позже.');
+        } catch (err) {
+            alert(err.response?.data?.message || 'Не удалось отменить бронирование');
         }
     };
 
     useEffect(() => {
+        fetchBookings();
+    }, []);
 
-        fetchData();
-    }, [query]); // Добавляем query в зависимости, чтобы перезапрашивать данные при изменении
+    const filteredBookings = bookings
+        .filter(booking => booking?.book_title && typeof booking.book_title === 'string')
+        .filter(booking =>
+            booking.book_title.toLowerCase().includes(searchTerm.toLowerCase())
+        );
 
-    // Функция для обработки ввода в поле поиска
-    const handleSearchChange = (event) => {
-        setSearchTerm(event.target.value);
-    };
+    if (loading) return <div className="main_order_container">Загрузка...</div>;
 
-    // Фильтрация результатов на основе searchTerm
-    const filteredResults = results.filter(book =>
-        book.title.toLowerCase().includes(searchTerm.toLowerCase())
+    if (error) return (
+        <div className="main_order_container">
+            <p style={{ color: 'red' }}>{error}</p>
+            <button onClick={fetchBookings}>Повторить попытку</button>
+        </div>
     );
 
     return (
-        <div className = "main_order_container">
+        <div className="main_order_container">
+            <h2>Мои бронирования</h2>
+
             <input
                 type="text"
                 placeholder="Поиск по названию книги..."
                 value={searchTerm}
-                onChange={handleSearchChange}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="search-input"
             />
-            {filteredResults.length > 0 ? (
-                filteredResults.map((book) => {
-                    return (
-                        <div key={book.id} className = "result_">
-                            <h3 className = "h_result">Номер брони: {book.id}</h3>
-                            <p className = "h_result">Название книги: {book.title}</p>
-                            <p className = "h_result">Информация об издании: {book.information_publication}</p>
-                            <p className = "h_result">Количество книг: {book.quantity}</p>
-                            <p className = "h_result">Дата бронирования: {book.date_issue}</p>
-                            <p className = "h_result">Дата возврата: {book.date_return}</p>
-                            <button onClick={() => handleBooking(book.index)} className = "main_order-button">Отменить бронирование</button>
+
+            {filteredBookings.length > 0 ? (
+                <div className="bookings-list">
+                    {filteredBookings.map(booking => (
+                        <div key={booking.id} className="booking-card">
+                            <h3>{booking.book_title}</h3>
+                            <p><strong>ID:</strong> {booking.id}</p>
+                            <p><strong>Дата выдачи:</strong> {new Date(booking.date_issue).toLocaleDateString()}</p>
+                            <p><strong>Дата возврата:</strong> {new Date(booking.date_return).toLocaleDateString()}</p>
+                            <p><strong>Статус:</strong>
+                                {booking.returned
+                                    ? 'Возвращена'
+                                    : booking.issued
+                                        ? 'Выдана'
+                                        : 'Ожидает'
+                                }
+                            </p>
+
+                            {!booking.issued && !booking.returned && (
+                                <button
+                                    onClick={() => cancelBooking(booking.id)}
+                                    className="cancel-button"
+                                >
+                                    Отменить бронирование
+                                </button>
+                            )}
                         </div>
-                    );
-                })
+                    ))}
+                </div>
             ) : (
-                <p className = "h_result">Брони не найдены.</p>
+                <p>{searchTerm ? 'Ничего не найдено' : 'Нет активных бронирований'}</p>
             )}
         </div>
     );
-}
+};
 
 export default Booking;

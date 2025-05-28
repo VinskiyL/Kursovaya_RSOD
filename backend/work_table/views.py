@@ -11,43 +11,21 @@ from datetime import datetime, timedelta
 from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
-from .models import BooksCatalog
-from .serializers import BookListSerializer, BookDetailSerializer, AuthorShortSerializer, PopularBookSerializer
+from .serializers import BookListSerializer, BookDetailSerializer, AuthorShortSerializer, PopularBookSerializer, BookingSerializer, BookingCreateSerializer
 from .filters import BookFilter
 from django.core.cache import cache
 from django.db.models import Prefetch
-from .models import AuthorsBooks, AuthorsCatalog
+from .models import AuthorsBooks, AuthorsCatalog, BookingCatalog, BooksCatalog
 from django.db.models import Count, Q
 from rest_framework import generics, permissions
 from .models import Comments
 from .serializers import CommentSerializer
+from django.utils import timezone
+from datetime import timedelta
+from .permissions import IsAdminOrOwner
+from rest_framework.permissions import IsAuthenticated
 
 logger = logging.getLogger(__name__)
-
-class CommentListCreateView(generics.ListCreateAPIView):
-    queryset = Comments.objects.all().order_by('-created_at')
-    serializer_class = CommentSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
-
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
-
-class CommentDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Comments.objects.all()
-    serializer_class = CommentSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
-
-    def perform_update(self, serializer):
-        # Проверяем, что пользователь является автором комментария
-        if serializer.instance.user != self.request.user and not self.request.user.admin:
-            raise PermissionDenied("Вы не можете редактировать этот комментарий")
-        serializer.save()
-
-    def perform_destroy(self, instance):
-        # Проверяем, что пользователь является автором комментария или админом
-        if instance.user != self.request.user and not self.request.user.admin:
-            raise PermissionDenied("Вы не можете удалить этот комментарий")
-        instance.delete()
 
 class PopularBooksView(generics.ListAPIView):
     serializer_class = PopularBookSerializer
@@ -399,3 +377,313 @@ class AuthCheckView(APIView):
                 {"success": False, "message": "Недействительный токен"},
                 status=status.HTTP_401_UNAUTHORIZED
             )
+
+class CommentListCreateView(APIView):
+    """
+    Список комментариев и создание нового комментария с ручной проверкой токена в куки
+    """
+
+    def get(self, request):
+        comments = Comments.objects.all().order_by('-created_at')
+        serializer = CommentSerializer(comments, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        access_token = request.COOKIES.get('access_token')
+        if not access_token:
+            return Response(
+                {"detail": "Требуется авторизация: access_token не найден в cookies"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        try:
+            token = AccessToken(access_token)
+            user = ReadersCatalog.objects.get(id=token['user_id'])
+        except Exception as e:
+            logger.error(f"Ошибка при проверке токена или получении пользователя: {e}")
+            return Response(
+                {"detail": "Недействительный или истёкший токен"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        request.user = user  # Важно! Подменяем request.user
+        serializer = CommentSerializer(data=request.data, context={'request': request})
+
+        if not serializer.is_valid():
+            return Response(
+                {"detail": "Ошибка валидации", "errors": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        serializer.save()  # Без параметров
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class CommentDetailView(APIView):
+    """
+    Просмотр, обновление и удаление комментария с ручной проверкой токена и проверкой прав пользователя
+    """
+
+    def get_comment(self, pk):
+        try:
+            return Comments.objects.get(pk=pk)
+        except Comments.DoesNotExist:
+            return None
+
+    def get_user_from_token(self, request):
+        access_token = request.COOKIES.get('access_token')
+        if not access_token:
+            return None
+        try:
+            token = AccessToken(access_token)
+            user = ReadersCatalog.objects.get(id=token['user_id'])
+            return user
+        except Exception as e:
+            logger.error(f"Ошибка получения пользователя из токена: {e}")
+            return None
+
+    def get(self, request, pk):
+        comment = self.get_comment(pk)
+        if not comment:
+            return Response({"detail": "Комментарий не найден"}, status=status.HTTP_404_NOT_FOUND)
+        serializer = CommentSerializer(comment)
+        return Response(serializer.data)
+
+    def put(self, request, pk):
+        comment = self.get_comment(pk)
+        if not comment:
+            return Response({"detail": "Комментарий не найден"}, status=status.HTTP_404_NOT_FOUND)
+
+        user = self.get_user_from_token(request)
+        if not user:
+            return Response({"detail": "Требуется авторизация"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        if comment.user != user and not user.admin:
+            raise PermissionDenied("У вас нет прав для этого действия")
+
+        serializer = CommentSerializer(comment, data=request.data, partial=False, context={'request': request})
+        if not serializer.is_valid():
+            return Response({"detail": "Ошибка валидации", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+        serializer.save()
+        return Response(serializer.data)
+
+    def patch(self, request, pk):
+        comment = self.get_comment(pk)
+        if not comment:
+            return Response({"detail": "Комментарий не найден"}, status=status.HTTP_404_NOT_FOUND)
+
+        user = self.get_user_from_token(request)
+        if not user:
+            return Response({"detail": "Требуется авторизация"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        if comment.user != user and not user.admin:
+            raise PermissionDenied("У вас нет прав для этого действия")
+
+        serializer = CommentSerializer(comment, data=request.data, partial=True, context={'request': request})
+        if not serializer.is_valid():
+            return Response({"detail": "Ошибка валидации", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+        serializer.save()
+        return Response(serializer.data)
+
+    def delete(self, request, pk):
+        comment = self.get_comment(pk)
+        if not comment:
+            return Response({"detail": "Комментарий не найден"}, status=status.HTTP_404_NOT_FOUND)
+
+        user = self.get_user_from_token(request)
+        if not user:
+            return Response({"detail": "Требуется авторизация"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        if comment.user != user and not user.admin:
+            raise PermissionDenied("У вас нет прав для этого действия")
+
+        comment.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class BookingListCreateView(APIView):
+    """
+    Список бронирований и создание нового бронирования с проверкой токена в куки
+    """
+
+    def get(self, request):
+        access_token = request.COOKIES.get('access_token')
+        if not access_token:
+            return Response(
+                {"detail": "Требуется авторизация: access_token не найден в cookies"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        try:
+            token = AccessToken(access_token)
+            user = ReadersCatalog.objects.get(id=token['user_id'])
+        except Exception as e:
+            logger.error(f"Ошибка при проверке токена или получении пользователя: {e}")
+            return Response(
+                {"detail": "Недействительный или истёкший токен"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        bookings = BookingCatalog.objects.all()
+        serializer = BookingSerializer(bookings, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        access_token = request.COOKIES.get('access_token')
+        if not access_token:
+            return Response(
+                {"detail": "Требуется авторизация: access_token не найден в cookies"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        try:
+            token = AccessToken(access_token)
+            user = ReadersCatalog.objects.get(id=token['user_id'])
+        except Exception as e:
+            logger.error(f"Ошибка при проверке токена или получении пользователя: {e}")
+            return Response(
+                {"detail": "Недействительный или истёкший токен"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        serializer = BookingCreateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                {"detail": "Ошибка валидации", "errors": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Проверка доступности книги (дублируется в модели, но оставляем для быстрой валидации)
+        book = BooksCatalog.objects.get(pk=serializer.validated_data['index'].id)
+        if book.quantity_remaining < serializer.validated_data['quantity']:
+            return Response(
+                {'error': 'Недостаточно экземпляров книги для бронирования'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Создаем бронирование - логика уменьшения количества в модели
+        booking = serializer.save(
+            reader=user,
+            issued=False,
+            returned=False
+        )
+
+        return Response(
+            BookingSerializer(booking).data,
+            status=status.HTTP_201_CREATED
+        )
+
+
+class BookingDetailView(APIView):
+    """
+    Просмотр, обновление и удаление бронирования с проверкой токена и прав пользователя
+    """
+
+    def get_booking(self, pk):
+        try:
+            return BookingCatalog.objects.get(pk=pk)
+        except BookingCatalog.DoesNotExist:
+            return None
+
+    def get_user_from_token(self, request):
+        access_token = request.COOKIES.get('access_token')
+        if not access_token:
+            return None
+        try:
+            token = AccessToken(access_token)
+            user = ReadersCatalog.objects.get(id=token['user_id'])
+            return user
+        except Exception as e:
+            logger.error(f"Ошибка получения пользователя из токена: {e}")
+            return None
+
+    def get(self, request, pk):
+        booking = self.get_booking(pk)
+        if not booking:
+            return Response({"detail": "Бронирование не найдено"}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = BookingSerializer(booking)
+        return Response(serializer.data)
+
+    def patch(self, request, pk):
+        booking = self.get_booking(pk)
+        if not booking:
+            return Response({"detail": "Бронирование не найдено"}, status=status.HTTP_404_NOT_FOUND)
+
+        user = self.get_user_from_token(request)
+        if not user:
+            return Response({"detail": "Требуется авторизация"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        if booking.reader != user and not user.admin:
+            return Response(
+                {"detail": "У вас нет прав для этого действия"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Обрабатываем возврат книг
+        if 'returned' in request.data and request.data['returned']:
+            booking.mark_as_returned()
+            return Response(BookingSerializer(booking).data)
+
+        # Для других изменений используем сериализатор
+        serializer = BookingSerializer(booking, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response(
+                {"detail": "Ошибка валидации", "errors": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        serializer.save()
+        return Response(serializer.data)
+
+    def delete(self, request, pk):
+        booking = self.get_booking(pk)
+        if not booking:
+            return Response({"detail": "Бронирование не найдено"}, status=status.HTTP_404_NOT_FOUND)
+
+        user = self.get_user_from_token(request)
+        if not user:
+            return Response({"detail": "Требуется авторизация"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        if booking.reader != user and not user.admin:
+            return Response(
+                {"detail": "У вас нет прав для этого действия"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        booking.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class UserBookingsListView(generics.ListAPIView):
+    serializer_class = BookingSerializer
+
+    def get_queryset(self):
+        user_id = self.kwargs['user_id']
+        return BookingCatalog.objects.filter(reader_id=user_id)
+
+
+class UserBookingsView(APIView):
+    """
+    Список бронирований текущего пользователя
+    """
+
+    def get(self, request):
+        access_token = request.COOKIES.get('access_token')
+        if not access_token:
+            return Response(
+                {"detail": "Требуется авторизация: access_token не найден в cookies"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        try:
+            token = AccessToken(access_token)
+            user = ReadersCatalog.objects.get(id=token['user_id'])
+        except Exception as e:
+            logger.error(f"Ошибка при проверке токена или получении пользователя: {e}")
+            return Response(
+                {"detail": "Недействительный или истёкший токен"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        bookings = BookingCatalog.objects.filter(reader=user)
+        serializer = BookingSerializer(bookings, many=True)
+        return Response(serializer.data)

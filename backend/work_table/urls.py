@@ -3,7 +3,8 @@ from .views import (
     RegisterReaderView, LoginAPIView, LogoutAPIView,
     RefreshTokenView, UserProfileView, AuthCheckView,
     BookListView, BookDetailView, PopularBooksView,
-    CommentListCreateView, CommentDetailView
+    CommentListCreateView, CommentDetailView, UserBookingsListView,
+    BookingDetailView, BookingListCreateView, UserBookingsView
 )
 
 urlpatterns = [
@@ -18,4 +19,10 @@ urlpatterns = [
     path('api/books/popular/', PopularBooksView.as_view(), name='popular-books'),
     path('comments/', CommentListCreateView.as_view(), name='comment-list'),
     path('comments/<int:pk>/', CommentDetailView.as_view(), name='comment-detail'),
+    path('bookings/', BookingListCreateView.as_view()),
+    path('bookings/<int:pk>/', BookingDetailView.as_view()),
+    #path('bookings/<int:pk>/issue/', IssueBookingView.as_view()),
+    #path('bookings/<int:pk>/return/', ReturnBookingView.as_view()),
+    path('users/<int:user_id>/bookings/', UserBookingsListView.as_view(), name='user-bookings'),
+    path('bookings/my/', UserBookingsView.as_view(), name='user-bookings'),
 ]

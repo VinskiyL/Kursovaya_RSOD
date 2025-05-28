@@ -83,7 +83,7 @@ function App() {
                         <Route path="/registration" element={<Registration />} />
                         <Route path="/popular_books" element={<PopularBooks />} />
                         <Route path="/books_table" element={<Books />} />
-                        <Route path="/books_info/:index" element={<BooksInfo />} />
+                        <Route path="/books_info/:id" element={<BooksInfo />} />
 
 
                         {/* Только для авторизованных пользователей */}

@@ -1,42 +1,62 @@
-import axios from 'axios'
-import {Link} from 'react-router-dom'
-import './main/main.css'
-import imgBooks from './main/books.jpg'
-import imgAuthors from './main/authors.jpg'
-import Search from './main/search'
+import { Link } from 'react-router-dom';
+import './main/main.css';
+import imgBooks from './main/books.png';
+import imgBooking from './main/booking.jpg';
+import imgOrders from './main/orders.jpg';
 import Comments from './main/comments';
-
-
-function Prof(){
-    return(
+import imgTopBooks from './main/top_books.jpg';
+import imgPrev from './main/prev.jpg';
+//TODO добавить ссылку на редактирование профиля
+//TODO Добавить информацию о юзере в инфо
+function Prof() {
+    return (
         <>
-        <div className = "result">
-            <Search/>
-        </div>
-        <div className = "b_o">
-            <Link className = "booking" to={'booking'} className = "table--order">
-               <div className = "order">
-                   <h2 className = "h2--order">Бронирование</h2>
-               </div>
-            </Link>
-            <Link className = "order" to={'order'} className = "table--order">
-               <div className = "order">
-                   <h2 className = "h2--order">Заказы</h2>
-               </div>
-            </Link>
-        </div>
-        <div className = "main_tab">
-           <Link className = "table" to={'books_table'}>
-               <div className = "books">
-                 <div className='img_div'>
-                     <img className='img' src={imgBooks} alt="books" />
-                 </div>
-                 <h2 className = "h2">Книги</h2>
-               </div>
-            </Link>
-        </div>
-        <Comments/>
+            {/* Информационная панель */}
+            <section className="info-section small">
+                <div className="info-content">
+                    <div className="text-block">
+                        <h2>Личный кабинет</h2>
+                        <ul>
+                            <li>Просмотр бронирований</li>
+                            <li>Управление заказами</li>
+                            <li>Доступ к каталогу книг</li>
+                            <li>История посещений</li>
+                        </ul>
+                    </div>
+                    <div className="image-block">
+                        <img src={imgPrev} alt="Личный кабинет" />
+                    </div>
+                </div>
+            </section>
+
+            {/* Основные функции */}
+            <section className="cards-container">
+                <Link to="/booking" className="card tall">
+                    <img src={imgBooking} alt="Бронирование" />
+                    <h2>Бронирование</h2>
+                </Link>
+
+                <Link to="/order" className="card tall">
+                    <img src={imgOrders} alt="Заказы" />
+                    <h2>Заказы</h2>
+                </Link>
+            </section>
+
+            {/* Каталог книг */}
+            <section className="cards-container">
+                <Link to="/popular_books" className="card tall">
+                    <img src={imgTopBooks} alt="Популярные книги" />
+                    <h2>Популярные книги</h2>
+                </Link>
+                <Link to="/books_table" className="card tall">
+                    <img src={imgBooks} alt="Книги" />
+                    <h2>Книги</h2>
+                </Link>
+            </section>
+
+            <Comments />
         </>
-        )
+    );
 }
-export default Prof
+
+export default Prof;

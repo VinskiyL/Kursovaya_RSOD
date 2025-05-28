@@ -1,54 +1,45 @@
-import axios from 'axios'
-import {Link} from 'react-router-dom'
-import './main.css'
-import imgBooks from './books.jpg'
-import imgAuthors from './authors.jpg'
-import imgPrev from './prev.jpg'
-import Search from './search'
+import { Link } from 'react-router-dom';
+import './main.css';
+import imgBooks from './books.png';
+import imgTopBooks from './top_books.jpg';
+import imgPrev from './prev.jpg';
 import Comments from './comments';
 
-function MainContent(){
-    return(
+function MainContent() {
+    return (
         <>
-        <div className = "result">
-            <Search/>
-        </div>
-        <div className = "main_prev">
-            <div className = "table_prev">
-                <div className = "prev">
-                    <div className = "text_prev">
-                        <h2 className = "h_prev">Здесь вы можете</h2>
-                        <p className = "h_prev">Найти книгу</p>
-                        <p className = "h_prev">Найти автора</p>
-                        <p className = "h_prev">Забронировать книгу</p>
-                        <p className = "h_prev">Заказать книгу в библиотеку</p>
+            <section className="info-section small">
+                <div className="info-content">
+                    <div className="text-block">
+                        <h2>Здесь вы можете:</h2>
+                        <ul>
+                            <li>Найти книгу</li>
+                            <li>Оставить отзыв</li>
+                            <li>Забронировать книгу</li>
+                            <li>Заказать книгу в библиотеку</li>
+                        </ul>
                     </div>
-                    <div className='img_div_prev'>
-                        <img className='img_prev' src={imgPrev} alt="prev" />
+                    <div className="image-block">
+                        <img src={imgPrev} alt="Preview" />
                     </div>
                 </div>
-            </div>
-        </div>
-        <div className = "main_tab">
-            <Link className = "table" to={'popular_books'}>
-               <div className = "books">
-                 <div className='img_div'>
-                     <img className='img' src={imgBooks} alt="books" />
-                 </div>
-                 <h2 className = "h2">Популярные книги</h2>
-               </div>
-            </Link>
-           <Link className = "table" to={'books_table'}>
-               <div className = "books">
-                 <div className='img_div'>
-                     <img className='img' src={imgBooks} alt="books" />
-                 </div>
-                 <h2 className = "h2">Книги</h2>
-               </div>
-            </Link>
-        </div>
-        <Comments/>
+            </section>
+
+            {/* Унифицированные карточки, книги повыше */}
+            <section className="cards-container">
+                <Link to="/popular_books" className="card tall">
+                    <img src={imgTopBooks} alt="Популярные книги" />
+                    <h2>Популярные книги</h2>
+                </Link>
+                <Link to="/books_table" className="card tall">
+                    <img src={imgBooks} alt="Книги" />
+                    <h2>Книги</h2>
+                </Link>
+            </section>
+
+            <Comments />
         </>
-        )
+    );
 }
-export default MainContent
+
+export default MainContent;

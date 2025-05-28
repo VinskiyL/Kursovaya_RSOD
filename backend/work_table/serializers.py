@@ -4,7 +4,72 @@ from rest_framework.exceptions import ValidationError
 import re
 from datetime import date
 from rest_framework import serializers
-from .models import BooksCatalog, AuthorsCatalog, AuthorsBooks, Comments
+from .models import BooksCatalog, AuthorsCatalog, AuthorsBooks, Comments, BookingCatalog
+
+
+class BookingSerializer(serializers.ModelSerializer):
+    book_title = serializers.CharField(source='index.title', read_only=True)
+    reader_name = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = BookingCatalog
+        fields = [
+            'id', 'index', 'reader', 'quantity', 'date_issue',
+            'date_return', 'issued', 'returned', 'book_title', 'reader_name'
+        ]
+        extra_kwargs = {
+            'index': {'required': True},
+            'reader': {'required': True},
+            'quantity': {'required': True},
+            'date_issue': {'required': True},
+            'date_return': {'required': True},
+            'issued': {'read_only': True},  # Запрещаем прямое изменение
+            'returned': {'read_only': True}  # через API
+        }
+
+    def get_reader_name(self, obj):
+        return f"{obj.reader.surname} {obj.reader.name}"
+
+    def validate(self, data):
+        instance = self.instance
+
+        # Для существующих записей
+        if instance:
+            # Проверка при попытке выдачи
+            if 'issued' in data and data['issued'] and not instance.issued:
+                if instance.index.quantity_remaining < instance.quantity:
+                    raise serializers.ValidationError(
+                        "Недостаточно экземпляров книги для выдачи"
+                    )
+
+            # Проверка при попытке возврата
+            if 'returned' in data and data['returned'] and not instance.returned:
+                if not instance.issued:
+                    raise serializers.ValidationError(
+                        "Невозможно вернуть невыданные книги"
+                    )
+
+        return data
+
+
+class BookingCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BookingCatalog
+        fields = ['index', 'quantity', 'date_issue']
+        extra_kwargs = {
+            'quantity': {
+                'min_value': 1,
+                'max_value': 5
+            }
+        }
+
+    def validate(self, data):
+        # Проверяем доступность книг при создании брони
+        if data['index'].quantity_remaining < data['quantity']:
+            raise serializers.ValidationError(
+                "Недостаточно экземпляров книги для бронирования"
+            )
+        return data
 
 class CommentSerializer(serializers.ModelSerializer):
     user_info = serializers.SerializerMethodField()

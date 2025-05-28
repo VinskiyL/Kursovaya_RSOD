@@ -1,0 +1,218 @@
+/* books_info.css */
+
+.book-detail-container {
+    padding: 30px 20px;
+    font-family: 'Poppins', sans-serif;
+    max-width: 1200px;
+    margin: 0 auto;
+    box-sizing: border-box;
+    color: #002137;
+    line-height: 1.6;
+}
+
+.h_result {
+    font-size: 2em;
+    margin-bottom: 20px;
+    color: #002137;
+    font-weight: 600;
+}
+
+.book-content-wrapper {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 40px;
+    margin-bottom: 30px;
+    align-items: flex-start; /* Добавлено для выравнивания по верху */
+}
+
+.book-text-content {
+    flex: 1;
+    min-width: 300px;
+    max-width: calc(100% - 340px); /* Ограничиваем ширину текстового блока */
+}
+
+.book-cover.place {
+    flex: 0 0 300px; /* Фиксированная ширина */
+    max-width: 100%;
+    height: 400px; /* Фиксированная высота контейнера */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden; /* Обрезаем всё, что выходит за границы */
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    background-color: #f5f5f5; /* Фон на случай, если изображение не загрузится */
+}
+
+.book-cover_detail {
+    max-width: 100%;
+    max-height: 100%; /* Не больше высоты родителя */
+    width: auto;
+    height: auto;
+    object-fit: contain; /* Сохраняем пропорции */
+    display: block;
+}
+
+.book-authors {
+    margin-bottom: 15px;
+    font-size: 1.1em;
+}
+
+.book-authors span {
+    margin-right: 5px;
+}
+
+.book-detail-container p {
+    margin-bottom: 15px;
+    font-size: 1em;
+}
+
+.book-detail-container strong {
+    color: #002137;
+    font-weight: 500;
+}
+
+.booking-section {
+    margin-top: 20px;
+    padding: 20px;
+    background-color: #f9f9f9;
+    border-radius: 12px;
+    width: 100%;
+}
+
+.booking-controls {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.quantity-selector {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.quantity-selector label {
+    font-weight: 500;
+    color: #002137;
+}
+
+.quantity-input {
+    padding: 10px 15px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    width: 70px;
+    text-align: center;
+    font-size: 1em;
+    transition: all 0.3s ease;
+}
+
+.quantity-input:focus {
+    outline: none;
+    border-color: #a3c1bf;
+    box-shadow: 0 0 0 3px rgba(163, 193, 191, 0.2);
+}
+
+.main_order-button {
+    padding: 12px 24px;
+    font-size: 1em;
+    font-weight: 600;
+    background-color: #a3c1bf;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.main_order-button:hover:not(:disabled) {
+    background-color: #8cb0ad;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.main_order-button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+.success-message {
+    color: #28a745;
+    font-weight: 500;
+    text-align: center;
+    padding: 10px;
+    background-color: rgba(40, 167, 69, 0.1);
+    border-radius: 8px;
+}
+
+.loading-container,
+.error-container,
+.not-found-container {
+    text-align: center;
+    padding: 50px 20px;
+    font-size: 1.2em;
+    color: #666;
+}
+
+.error-container {
+    color: #dc3545;
+    background-color: rgba(220, 53, 69, 0.1);
+    border-radius: 8px;
+    margin: 20px;
+}
+
+/* Адаптивность */
+@media (max-width: 900px) {
+    .book-content-wrapper {
+        flex-direction: column;
+        gap: 30px;
+    }
+
+    .book-cover.place {
+        align-self: center;
+    }
+
+    .h_result {
+        text-align: center;
+    }
+}
+
+@media (max-width: 768px) {
+    .book-detail-container {
+        padding: 20px 15px;
+    }
+
+    .h_result {
+        font-size: 1.6em;
+    }
+
+    .booking-controls {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+
+    .quantity-selector {
+        width: 100%;
+    }
+
+    .main_order-button {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .h_result {
+        font-size: 1.4em;
+    }
+
+    .book-cover_detail {
+        max-width: 100%;
+        height: auto;
+    }
+
+    .book-detail-container p {
+        font-size: 0.95em;
+    }
+}

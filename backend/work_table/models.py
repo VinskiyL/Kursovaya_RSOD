@@ -1,11 +1,6 @@
-# This is an auto-generated Django model module.
-# You'll have to do the following manually to clean this up:
-#   * Rearrange models' order
-#   * Make sure each model has one field with primary_key=True
-#   * Make sure each ForeignKey and OneToOneField has `on_delete` set to the desired behavior
-#   * Remove `managed = False` lines if you wish to allow Django to create, modify, and delete the table
-# Feel free to rename the models, but don't rename db_table values or field names.
 from django.db import models
+from django.utils import timezone
+from datetime import timedelta
 
 
 class AuthorsBooks(models.Model):
@@ -40,7 +35,50 @@ class BookingCatalog(models.Model):
     issued = models.BooleanField()
     returned = models.BooleanField()
 
+    def save(self, *args, **kwargs):
+        # Получаем текущее состояние из базы, если запись уже существует
+        if self.pk:
+            old_booking = BookingCatalog.objects.get(pk=self.pk)
+        else:
+            old_booking = None
+
+        # Для новых записей устанавливаем даты по умолчанию
+        if not self.pk:
+            if not self.date_issue:
+                self.date_issue = timezone.now().date()
+            if not self.date_return:
+                self.date_return = self.date_issue + timedelta(days=30)
+
+        # Обрабатываем выдачу книг
+        if self.issued and (not old_booking or not old_booking.issued):
+            if self.index.quantity_remaining < self.quantity:
+                raise ValueError("Недостаточно экземпляров книги для выдачи")
+            self.index.quantity_remaining -= self.quantity
+            self.index.save()
+
+        # Обрабатываем возврат книг
+        if self.returned and (not old_booking or not old_booking.returned):
+            if not self.issued:
+                raise ValueError("Невозможно вернуть невыданные книги")
+            self.index.quantity_remaining += self.quantity
+            self.index.save()
+
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        super().delete(*args, **kwargs)
+
+    def mark_as_returned(self):
+        if not self.issued:
+            raise ValueError("Книга не была выдана")
+        if self.returned:
+            raise ValueError("Книга уже возвращена")
+
+        self.returned = True
+        self.save()  # Логика возврата будет в методе save()
+
     class Meta:
+        ordering = ['-date_issue']
         managed = True
         db_table = 'Booking_catalog'
 
