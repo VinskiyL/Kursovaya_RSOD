@@ -7,7 +7,9 @@ from .models import (
     BooksCatalog,
     Comments,
     OrderCatalog,
-    ReadersCatalog
+    ReadersCatalog,
+    BooksGenres,
+    GenresCatalog
 )
 
 
@@ -54,11 +56,20 @@ class BookingCatalogAdmin(admin.ModelAdmin):
     status.short_description = 'Статус'
 
 
-class BooksCatalogAdmin(admin.ModelAdmin):  # Исправленная строка
-    list_display = ('id', 'title_with_cover', 'index', 'authors_display', 'quantity_status')
+class BooksGenresInline(admin.TabularInline):
+    model = BooksGenres
+    extra = 1
+    verbose_name = "Жанр"
+    verbose_name_plural = "Жанры книги"
+
+
+class BooksCatalogAdmin(admin.ModelAdmin):
+    list_display = ('id', 'title_with_cover', 'index', 'authors_display', 'genres_display', 'quantity_status')
     search_fields = ('title', 'index', 'authors_mark')
-    list_filter = ('quantity_remaining',)
-    readonly_fields = ('authors_display', 'cover_preview')
+    list_filter = ('quantity_remaining', 'genres__name')  # Фильтрация по имени жанра
+    readonly_fields = ('authors_display', 'cover_preview', 'genres_list')
+    inlines = [BooksGenresInline]  # Оставляем только inline для связи книг и жанров
+
     fieldsets = (
         ('Основное', {
             'fields': ('title', 'index', 'authors_mark', 'cover', 'cover_preview')
@@ -68,6 +79,10 @@ class BooksCatalogAdmin(admin.ModelAdmin):  # Исправленная стро�
         }),
         ('Экземпляры', {
             'fields': ('quantity_total', 'quantity_remaining')
+        }),
+        ('Дополнительно', {
+            'fields': ('genres_list',),
+            'classes': ('collapse',)
         })
     )
 
@@ -86,6 +101,16 @@ class BooksCatalogAdmin(admin.ModelAdmin):  # Исправленная стро�
         return obj.get_authors_names()
 
     authors_display.short_description = 'Авторы'
+
+    def genres_display(self, obj):
+        return ", ".join([genre.name for genre in obj.genres.all()])
+
+    genres_display.short_description = 'Жанры'
+
+    def genres_list(self, obj):
+        return ", ".join([genre.name for genre in obj.genres.all()])
+
+    genres_list.short_description = 'Список жанров'
 
     def quantity_status(self, obj):
         return f"{obj.quantity_remaining}/{obj.quantity_total}"
@@ -172,6 +197,17 @@ class ReadersCatalogAdmin(admin.ModelAdmin):
         return "********"
 
     password_display.short_description = 'Пароль'
+
+
+@admin.register(GenresCatalog)
+class GenresCatalogAdmin(admin.ModelAdmin):
+    list_display = ('name', 'books_count')
+    search_fields = ('name',)
+
+    def books_count(self, obj):
+        return obj.books.count()
+
+    books_count.short_description = 'Количество книг'
 
 
 admin.site.register(AuthorsBooks, AuthorsBooksAdmin)

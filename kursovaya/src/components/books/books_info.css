@@ -216,3 +216,95 @@
         font-size: 0.95em;
     }
 }
+
+
+
+/* Стили для контейнера успешного бронирования */
+.booking-success-container {
+    text-align: center;
+    padding: 25px;
+    background-color: #f0f8f0;
+    border-radius: 12px;
+    border: 1px solid #d4edda;
+    margin-top: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.success-message {
+    color: #28a745;
+    font-size: 1.2em;
+    font-weight: 500;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.success-message::before {
+    content: "✓";
+    font-size: 1.4em;
+}
+
+/* Стили для ссылки "Перейти к моим броням" */
+.go_booking {
+    display: inline-block;
+    padding: 12px 30px;
+    background-color: #a3c1bf;
+    color: white;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 1em;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    border: none;
+    cursor: pointer;
+}
+
+.go_booking:hover {
+    background-color: #8cb0ad;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.go_booking:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.go_booking h2 {
+    margin: 0;
+    font-size: 1.1em;
+    font-weight: 600;
+    color: white;
+}
+
+/* Анимация для ссылки */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.booking-success-container {
+    animation: fadeInUp 0.5s ease-out;
+}
+
+/* Адаптивные стили */
+@media (max-width: 768px) {
+    .booking-success-container {
+        padding: 20px 15px;
+    }
+
+    .go_booking {
+        padding: 10px 20px;
+        width: 100%;
+        box-sizing: border-box;
+    }
+}

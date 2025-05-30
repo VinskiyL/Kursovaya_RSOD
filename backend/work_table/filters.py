@@ -1,5 +1,5 @@
 from django_filters import rest_framework as filters
-from .models import BooksCatalog, AuthorsCatalog
+from .models import BooksCatalog, OrderCatalog
 
 class BookFilter(filters.FilterSet):
     author = filters.CharFilter(method='filter_by_author')
@@ -12,6 +12,7 @@ class BookFilter(filters.FilterSet):
             'title': ['icontains'],
             'index': ['exact'],
             'quantity_remaining': ['gte', 'lte'],
+            'genres': ['exact'],
         }
 
     def filter_by_author(self, queryset, name, value):
@@ -35,3 +36,23 @@ class BookFilter(filters.FilterSet):
         for surname in surnames:
             qs = qs.filter(authorsbooks__author__author_surname__icontains=surname.strip())
         return qs
+
+class OrderFilter(filters.FilterSet):
+    title = filters.CharFilter(
+        field_name='title',
+        lookup_expr='icontains',
+        label='Название книги содержит'
+    )
+    author = filters.CharFilter(
+        field_name='author_surname',
+        lookup_expr='icontains',
+        label='Фамилия автора содержит'
+    )
+    date_publication = filters.NumberFilter(
+        field_name='date_publication',
+        label='Год публикации'
+    )
+
+    class Meta:
+        model = OrderCatalog
+        fields = ['title', 'author', 'date_publication']

@@ -1,11 +1,14 @@
 from .models import ReadersCatalog
-from django.contrib.auth.hashers import make_password
+from django.contrib.auth.hashers import make_password, check_password
 from rest_framework.exceptions import ValidationError
-import re
-from datetime import date
+from datetime import date, timedelta
 from rest_framework import serializers
-from .models import BooksCatalog, AuthorsCatalog, AuthorsBooks, Comments, BookingCatalog
+from .models import BooksCatalog, AuthorsCatalog, Comments, BookingCatalog, GenresCatalog, OrderCatalog
 
+class GenreSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GenresCatalog
+        fields = ['id', 'name']
 
 class BookingSerializer(serializers.ModelSerializer):
     book_title = serializers.CharField(source='index.title', read_only=True)
@@ -100,11 +103,12 @@ class AuthorShortSerializer(serializers.ModelSerializer):
 class BookListSerializer(serializers.ModelSerializer):
     authors = serializers.SerializerMethodField()
     available = serializers.SerializerMethodField()
+    genres = GenreSerializer(many=True, read_only=True)
 
     class Meta:
         model = BooksCatalog
         fields = [
-            'id', 'index', 'title', 'authors', 'volume',
+            'id', 'index', 'title', 'authors', 'genres', 'volume',
             'quantity_total', 'quantity_remaining', 'available',
             'cover'
         ]
@@ -117,6 +121,8 @@ class BookListSerializer(serializers.ModelSerializer):
         return obj.quantity_remaining > 0
 
 class BookDetailSerializer(BookListSerializer):
+    genres = GenreSerializer(many=True, read_only=True)
+
     def validate_date_publication(self, value):
         if not value.isdigit() or len(value) != 4:
             raise serializers.ValidationError("Год должен быть в формате YYYY")
@@ -139,10 +145,25 @@ class PopularBookSerializer(BookListSerializer):
     class Meta(BookListSerializer.Meta):
         fields = BookListSerializer.Meta.fields + ['active_bookings']
 
+
 class ReadersCatalogSerializer(serializers.ModelSerializer):
     password = serializers.CharField(
         write_only=True,
-        required=True,
+        required=False,
+        style={'input_type': 'password'},
+        min_length=6,
+        max_length=128
+    )
+    new_password = serializers.CharField(
+        write_only=True,
+        required=False,
+        style={'input_type': 'password'},
+        min_length=6,
+        max_length=128
+    )
+    confirm_password = serializers.CharField(
+        write_only=True,
+        required=False,
         style={'input_type': 'password'},
         min_length=6,
         max_length=128
@@ -154,78 +175,104 @@ class ReadersCatalogSerializer(serializers.ModelSerializer):
             'id', 'surname', 'name', 'patronymic', 'birthday', 'education', 'profession',
             'educational_inst', 'city', 'street', 'house', 'building_house', 'flat',
             'passport_series', 'passport_number', 'issued_by_whom', 'date_issue',
-            'consists_of', 're_registration', 'phone', 'login', 'password', 'mail', 'admin'
+            'consists_of', 're_registration', 'phone', 'login', 'password',
+            'new_password', 'confirm_password', 'mail', 'admin'
         ]
         extra_kwargs = {
             'password': {'write_only': True},
+            'new_password': {'write_only': True},
+            'confirm_password': {'write_only': True},
         }
 
     def validate_login(self, value):
-        value = value.strip()
-
-        if len(value) < 4:
-            raise ValidationError("Логин должен содержать минимум 4 символа.")
-
-        if len(value) > 30:
-            raise ValidationError("Логин должен быть не длиннее 30 символов.")
-
-        if not re.match(r'^[a-zA-Z0-9_\-\.]+$', value):
-            raise ValidationError(
-                "Логин может содержать только латинские буквы, цифры, точки, дефисы и подчеркивания."
-            )
-
-        if ReadersCatalog.objects.filter(login__iexact=value).exists():
-            raise ValidationError("Пользователь с таким логином уже существует.")
-
-        return value
-
-    def validate_password(self, value):
-        if len(value) < 6:
-            raise ValidationError("Пароль должен содержать минимум 6 символов.")
-
-        if not re.search(r'[A-Z]', value):
-            raise ValidationError("Пароль должен содержать хотя бы одну заглавную букву.")
-
-        if not re.search(r'[a-z]', value):
-            raise ValidationError("Пароль должен содержать хотя бы одну строчную букву.")
-
-        if not re.search(r'[0-9]', value):
-            raise ValidationError("Пароль должен содержать хотя бы одну цифру.")
-
-        return value
-
-    def validate_phone(self, value):
-        if not re.match(r'^\+?[0-9]{10,15}$', value):
-            raise ValidationError("Введите корректный номер телефона.")
-        return value
-
-    def validate_mail(self, value):
-        if not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', value):
-            raise ValidationError("Введите корректный email адрес.")
+        if not value:
+            raise serializers.ValidationError("Логин не может быть пустым")
+        if ReadersCatalog.objects.filter(login=value).exists():
+            raise serializers.ValidationError("Пользователь с таким логином уже существует")
         return value
 
     def validate(self, data):
-        # Проверка даты рождения (минимальный возраст 12 лет)
-        from datetime import date, timedelta
-        if data['birthday'] and data['birthday'] > date.today() - timedelta(days=13 * 365):
+        # Проверка даты рождения
+        if data.get('birthday') and data['birthday'] > date.today() - timedelta(days=13 * 365):
             raise ValidationError({"birthday": "Пользователь должен быть старше 13 лет."})
+
+        # Проверка пароля только если меняем
+        if 'new_password' in data:
+            if 'password' not in data:
+                raise ValidationError({"password": "Требуется текущий пароль"})
+
+            if data['new_password'] == data['password']:
+                raise ValidationError({"new_password": "Новый пароль должен отличаться от текущего"})
+
+            if 'confirm_password' not in data or data['new_password'] != data['confirm_password']:
+                raise ValidationError({"confirm_password": "Новый пароль и подтверждение не совпадают"})
 
         return data
 
-    def create(self, validated_data):
-        validated_data['password'] = make_password(validated_data['password'])
-        validated_data['is_active'] = True  # Активируем пользователя при регистрации
+    def update(self, instance, validated_data):
+        # Изменение пароля
+        if 'new_password' in validated_data:
+            current_password = validated_data['password']
+            if not check_password(current_password, instance.password):
+                raise ValidationError({"password": "Неверный текущий пароль"})
 
-        # Устанавливаем дату регистрации, если не указана
-        if not validated_data.get('consists_of'):
-            validated_data['consists_of'] = date.today()
+            instance.password = make_password(validated_data['new_password'])
+            validated_data.pop('password', None)
+            validated_data.pop('new_password', None)
+            validated_data.pop('confirm_password', None)
 
-        return super().create(validated_data)
+        # Обновление остальных полей
+        for attr, value in validated_data.items():
+            if hasattr(instance, attr):
+                setattr(instance, attr, value)
+
+        instance.save()
+        return instance
 
     def to_representation(self, instance):
-        """Скрываем чувствительные данные при выводе"""
+        """Скрываем пароли при выводе"""
         data = super().to_representation(instance)
         data.pop('password', None)
-        data.pop('passport_series', None)
-        data.pop('passport_number', None)
+        data.pop('new_password', None)
+        data.pop('confirm_password', None)
+        return data
+
+    def create(self, validated_data):
+        # Хеширование пароля перед созданием пользователя
+        validated_data['password'] = make_password(validated_data.get('password'))
+        return super().create(validated_data)
+
+class OrderSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderCatalog
+        fields = [
+            'id', 'title', 'author_surname', 'author_name', 'author_patronymic',
+            'quantyti', 'reader', 'date_publication'
+        ]
+        read_only_fields = ['reader']  # Запрещаем напрямую менять читателя
+        extra_kwargs = {
+            'quantyti': {
+                'min_value': 1,
+                'max_value': 10  # Максимальное количество для заказа
+            },
+            'title': {'required': True},
+            'author_surname': {'required': True}
+        }
+
+    def validate_quantyti(self, value):
+        if value < 1:
+            raise serializers.ValidationError("Количество не может быть меньше 1")
+        if value > 5:
+            raise serializers.ValidationError("Нельзя заказать больше 5 экземпляров")
+        return value
+
+    def validate(self, data):
+        if 'author_patronymic' in data and data['author_patronymic'] == '':
+            data['author_patronymic'] = None
+
+        if 'date_publication' in data and data['date_publication']:
+            if not data['date_publication'].isdigit() or len(data['date_publication']) != 4:
+                raise serializers.ValidationError({
+                    'date_publication': 'Год публикации должен быть в формате YYYY'
+                })
         return data

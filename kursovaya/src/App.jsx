@@ -7,6 +7,7 @@ import Header from './components/header/header';
 import AboutMe from './components/aboutme';
 import Login from './components/login';
 import Prof from './components/profile';
+import EditProfile from './components/edit_profile';
 import Books from './components/books/books_table';
 import PopularBooks from './components/books/popular_books';
 import Error from './components/error/Error404';
@@ -108,6 +109,22 @@ function App() {
                             element={
                                 <ProtectedRoute requireAuth={true}>
                                     <New />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/new_order/:id"
+                            element={
+                                <ProtectedRoute requireAuth={true}>
+                                    <New />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/edit_profile"
+                            element={
+                                <ProtectedRoute requireAuth={true}>
+                                    <EditProfile />
                                 </ProtectedRoute>
                             }
                         />

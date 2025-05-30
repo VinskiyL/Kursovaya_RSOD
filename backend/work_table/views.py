@@ -7,23 +7,24 @@ from .models import ReadersCatalog
 from .serializers import ReadersCatalogSerializer
 import time
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
-from .serializers import BookListSerializer, BookDetailSerializer, AuthorShortSerializer, PopularBookSerializer, BookingSerializer, BookingCreateSerializer
+from .serializers import BookListSerializer, BookDetailSerializer, PopularBookSerializer, BookingSerializer, BookingCreateSerializer
 from .filters import BookFilter
 from django.core.cache import cache
 from django.db.models import Prefetch
-from .models import AuthorsBooks, AuthorsCatalog, BookingCatalog, BooksCatalog
+from .models import AuthorsBooks, BookingCatalog, BooksCatalog
 from django.db.models import Count, Q
 from rest_framework import generics, permissions
 from .models import Comments
 from .serializers import CommentSerializer
-from django.utils import timezone
 from datetime import timedelta
-from .permissions import IsAdminOrOwner
-from rest_framework.permissions import IsAuthenticated
+from .models import OrderCatalog
+from .serializers import OrderSerializer
+from .filters import OrderFilter
+from rest_framework.exceptions import ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +69,8 @@ class BookListView(generics.ListAPIView):
         queryset = cache.get(cache_key)
         if not queryset:
             queryset = BooksCatalog.objects.all().prefetch_related(
-                Prefetch('authorsbooks_set', queryset=AuthorsBooks.objects.select_related('author'))
+                Prefetch('authorsbooks_set', queryset=AuthorsBooks.objects.select_related('author')),
+                Prefetch('genres')  # Добавляем prefetch для жанров
             )
             cache.set(cache_key, queryset, timeout=60 * 15)
         return queryset
@@ -97,7 +99,8 @@ class BookDetailView(generics.RetrieveAPIView):
 
     def get_queryset(self):
         return super().get_queryset().prefetch_related(
-            'authorsbooks_set__author'
+            'authorsbooks_set__author',
+            'genres'
         )
 
 
@@ -655,7 +658,7 @@ class BookingDetailView(APIView):
 
 class UserBookingsListView(generics.ListAPIView):
     serializer_class = BookingSerializer
-
+    pagination_class = BookPagination
     def get_queryset(self):
         user_id = self.kwargs['user_id']
         return BookingCatalog.objects.filter(reader_id=user_id)
@@ -686,4 +689,273 @@ class UserBookingsView(APIView):
 
         bookings = BookingCatalog.objects.filter(reader=user)
         serializer = BookingSerializer(bookings, many=True)
+        pagination_class = BookPagination
         return Response(serializer.data)
+
+class ProfileUpdateView(APIView):
+    """
+    Обновление профиля пользователя
+    """
+    def put(self, request):
+        access_token = request.COOKIES.get('access_token')
+        if not access_token:
+            return Response(
+                {"detail": "Требуется авторизация: access_token не найден в cookies"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        try:
+            token = AccessToken(access_token)
+            user = ReadersCatalog.objects.get(id=token['user_id'])
+        except Exception as e:
+            logger.error(f"Ошибка при проверке токена или получении пользователя: {e}")
+            return Response(
+                {"detail": "Недействительный или истёкший токен"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        serializer = ReadersCatalogSerializer(user, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response(
+                {"detail": "Ошибка валидации", "errors": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            serializer.save()
+            return Response(
+                {"success": True, "message": "Профиль успешно обновлен"},
+                status=status.HTTP_200_OK
+            )
+        except ValidationError as e:
+            return Response(
+                {"detail": "Ошибка валидации", "errors": e.detail},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+class OrderListView(APIView):
+    """
+    Список заказов и создание нового заказа с проверкой через куки
+    """
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = OrderFilter
+    pagination_class = BookPagination
+
+    def get_user_from_token(self, request):
+        """Получаем пользователя из access_token в куках"""
+        access_token = request.COOKIES.get('access_token')
+        if not access_token:
+            return None
+
+        try:
+            token = AccessToken(access_token)
+            user = ReadersCatalog.objects.get(id=token['user_id'])
+            return user
+        except Exception as e:
+            logger.error(f"Ошибка получения пользователя из токена: {e}")
+            return None
+
+    def get(self, request):
+        """Получение списка заказов пользователя"""
+        user = self.get_user_from_token(request)
+        if not user:
+            return Response(
+                {"detail": "Требуется авторизация: access_token не найден или недействителен"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        queryset = OrderCatalog.objects.filter(
+            reader=user
+        ).select_related('reader').order_by('-id')
+
+        # Применяем фильтрацию
+        queryset = self.filterset_class(request.GET, queryset=queryset).qs
+
+        # Применяем пагинацию
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(queryset, request)
+
+        serializer = OrderSerializer(page if page is not None else queryset, many=True)
+
+        return paginator.get_paginated_response(serializer.data) if page is not None else Response(serializer.data)
+
+    def post(self, request):
+        """Создание нового заказа"""
+        user = self.get_user_from_token(request)
+        if not user:
+            return Response(
+                {"detail": "Требуется авторизация: access_token не найден или недействителен"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        serializer = OrderSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                {"detail": "Ошибка валидации", "errors": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            serializer.save(reader=user)
+            logger.info(f"User {user.id} created new order")
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            logger.error(f"Order creation failed for user {user.id}: {str(e)}")
+            return Response(
+                {"detail": "Ошибка при создании заказа"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class OrderDetailView(APIView):
+    """
+    Детали заказа, обновление и удаление с проверкой через куки
+    """
+
+    def get_user_from_token(self, request):
+        """Получаем пользователя из access_token в куках"""
+        access_token = request.COOKIES.get('access_token')
+        if not access_token:
+            return None
+
+        try:
+            token = AccessToken(access_token)
+            user = ReadersCatalog.objects.get(id=token['user_id'])
+            return user
+        except Exception as e:
+            logger.error(f"Ошибка получения пользователя из токена: {e}")
+            return None
+
+    def get_order(self, order_id, user):
+        """Получаем заказ с проверкой принадлежности пользователю"""
+        try:
+            return OrderCatalog.objects.get(id=order_id, reader=user)
+        except OrderCatalog.DoesNotExist:
+            return None
+
+    def get(self, request, id):
+        """Получение деталей заказа"""
+        user = self.get_user_from_token(request)
+        if not user:
+            return Response(
+                {"detail": "Требуется авторизация: access_token не найден или недействителен"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        order = self.get_order(id, user)
+        if not order:
+            return Response(
+                {"detail": "Заказ не найден или у вас нет к нему доступа"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = OrderSerializer(order)
+        return Response(serializer.data)
+
+    def put(self, request, id):
+        """Полное обновление заказа"""
+        user = self.get_user_from_token(request)
+        if not user:
+            return Response(
+                {"detail": "Требуется авторизация: access_token не найден или недействителен"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        order = self.get_order(id, user)
+        if not order:
+            return Response(
+                {"detail": "Заказ не найден или у вас нет к нему доступа"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if 'reader' in request.data:
+            return Response(
+                {"detail": "Нельзя изменить читателя заказа"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        serializer = OrderSerializer(order, data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                {"detail": "Ошибка валидации", "errors": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            serializer.save()
+            logger.info(f"User {user.id} updated order {id}")
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error(f"Order update failed: {str(e)}")
+            return Response(
+                {"detail": "Ошибка при обновлении заказа"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def patch(self, request, id):
+        """Частичное обновление заказа"""
+        user = self.get_user_from_token(request)
+        if not user:
+            return Response(
+                {"detail": "Требуется авторизация: access_token не найден или недействителен"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        order = self.get_order(id, user)
+        if not order:
+            return Response(
+                {"detail": "Заказ не найден или у вас нет к нему доступа"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if 'reader' in request.data:
+            return Response(
+                {"detail": "Нельзя изменить читателя заказа"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        serializer = OrderSerializer(order, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response(
+                {"detail": "Ошибка валидации", "errors": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            serializer.save()
+            logger.info(f"User {user.id} updated order {id}")
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error(f"Order update failed: {str(e)}")
+            return Response(
+                {"detail": "Ошибка при обновлении заказа"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def delete(self, request, id):
+        """Удаление заказа"""
+        user = self.get_user_from_token(request)
+        if not user:
+            return Response(
+                {"detail": "Требуется авторизация: access_token не найден или недействителен"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        order = self.get_order(id, user)
+        if not order:
+            return Response(
+                {"detail": "Заказ не найден или у вас нет к нему доступа"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            order.delete()
+            logger.info(f"User {user.id} deleted order {id}")
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            logger.error(f"Order deletion failed: {str(e)}")
+            return Response(
+                {"detail": "Ошибка при удалении заказа"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

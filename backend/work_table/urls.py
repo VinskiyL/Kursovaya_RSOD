@@ -4,7 +4,8 @@ from .views import (
     RefreshTokenView, UserProfileView, AuthCheckView,
     BookListView, BookDetailView, PopularBooksView,
     CommentListCreateView, CommentDetailView, UserBookingsListView,
-    BookingDetailView, BookingListCreateView, UserBookingsView
+    BookingDetailView, BookingListCreateView, UserBookingsView,
+    ProfileUpdateView, OrderDetailView, OrderListView
 )
 
 urlpatterns = [
@@ -21,8 +22,9 @@ urlpatterns = [
     path('comments/<int:pk>/', CommentDetailView.as_view(), name='comment-detail'),
     path('bookings/', BookingListCreateView.as_view()),
     path('bookings/<int:pk>/', BookingDetailView.as_view()),
-    #path('bookings/<int:pk>/issue/', IssueBookingView.as_view()),
-    #path('bookings/<int:pk>/return/', ReturnBookingView.as_view()),
     path('users/<int:user_id>/bookings/', UserBookingsListView.as_view(), name='user-bookings'),
     path('bookings/my/', UserBookingsView.as_view(), name='user-bookings'),
+    path('profile/update/', ProfileUpdateView.as_view(), name='profile-update'),
+    path('orders/', OrderListView.as_view(), name='order-list'),
+    path('orders/<int:id>/', OrderDetailView.as_view(), name='order-detail'),
 ]

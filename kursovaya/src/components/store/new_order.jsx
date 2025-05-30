@@ -1,30 +1,49 @@
-import React, { useState } from 'react';
-import axios from 'axios';
+import React, { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import apiClient from '../../api/client';
 import './new_order.css';
 
 const New = () => {
+    const { id } = useParams();
+    const navigate = useNavigate();
     const [formData, setFormData] = useState({
         title: '',
         author_surname: '',
         author_name: '',
         author_patronymic: '',
-        quantity: '',
+        quantyti: '',
         date_publication: ''
     });
     const [error, setError] = useState('');
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchOrder = async () => {
+            try {
+                const response = await apiClient.get(`/orders/${id}/`);
+                setFormData(response.data);
+            } catch (err) {
+                setError('Произошла ошибка при загрузке заказа.');
+                console.error('Ошибка:', err.response ? err.response.data : err.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (id) fetchOrder();
+        else setLoading(false);
+    }, [id]);
 
     const validateForm = () => {
-        const { title, author_surname, quantity, author_name, author_patronymic} = formData;
+        const { title, author_surname, quantyti } = formData;
         const surnameRegex = /^[A-Za-zа-яА-ЯёЁ-]+$/;
-        const quantityRegex = /^(0*[1-4])$/; // только цифры от 1 до 4
+        const quantityRegex = /^[1-4]$/;
 
         if (!title) return "Требуется название.";
-        if (author_name && !surnameRegex.test(author_name)) return "Имя автора должно состоять только из букв и '-'.";
-        if (author_patronymic && !surnameRegex.test(author_patronymic)) return "Отчество автора должно состоять только из букв и '-'.";
         if (!surnameRegex.test(author_surname)) return "Фамилия автора обязательна и должна состоять только из букв и '-'.";
-        if (!quantityRegex.test(quantity)) return "Количество должно быть числом от 1 до 4.";
+        if (!quantityRegex.test(quantyti)) return "Количество должно быть числом от 1 до 4.";
 
-        return null; // No errors
+        return null;
     };
 
     const handleChange = (e) => {
@@ -42,72 +61,92 @@ const New = () => {
         }
 
         try {
-            const response = await axios.get('https://kursovaya.local/addOrder.php', {
-                params: {
-                    title: formData.title,
-                    author_surname: formData.author_surname,
-                    author_name: formData.author_name,
-                    author_patronymic: formData.author_patronymic,
-                    quantity: formData.quantity,
-                    date_publication: formData.date_publication
-                },
-                withCredentials: true,
-            });
+            const response = id
+                ? await apiClient.put(`/orders/${id}/`, formData)
+                : await apiClient.post('/orders/', formData);
 
-            if (response.data.success) {
-                alert('Заказ успешно создан!');
-                // Здесь можно вызвать функцию для обновления данных
-                // fetchData();
-            } else {
-                alert('Не удалось сделать заказ. Попробуйте снова.');
+            if (response.status === 200 || response.status === 201) {
+                alert(`Заказ успешно ${id ? 'обновлён' : 'создан'}!`);
+                navigate('/order');
             }
         } catch (error) {
-            setError('Ошибка: ' + error.message);
+            setError('Ошибка: ' + (error.response?.data?.message || error.message));
             alert('Произошла ошибка. Попробуйте позже.');
         }
     };
 
+    if (loading) return <div className="container_new_order"><p className="h_result">Загрузка...</p></div>;
+
     return (
         <div className="container_new_order">
-            <h1 className = "h2">Создание заказа</h1>
-            {error && <p style={{ color: 'red' }}>{error}</p>}
-            <form onSubmit={handleSubmit} className = "container_new_order--form">
+            <h1 className="h2">{id ? `Редактирование заказа #${id}` : 'Создание нового заказа'}</h1>
+            {error && <p className="error-message">{error}</p>}
+            <form onSubmit={handleSubmit} className="container_new_order--form">
                 <div className="container_new_order--el">
-                    <label><p className = "h_result">Название книги (обязательно):</p></label>
-                    <input type="text" name="title" value={formData.title} onChange={handleChange} required />
+                    <label><p className="h_result">Название книги (обязательно):</p></label>
+                    <input
+                        type="text"
+                        name="title"
+                        value={formData.title}
+                        onChange={handleChange}
+                        required
+                    />
                 </div>
                 <div className="container_new_order--el">
-                    <label><p className = "h_result">Фамилия автора (обязательно):</p></label>
-                    <input type="text" name="author_surname" value={formData.author_surname} onChange={handleChange} required />
+                    <label><p className="h_result">Фамилия автора (обязательно):</p></label>
+                    <input
+                        type="text"
+                        name="author_surname"
+                        value={formData.author_surname}
+                        onChange={handleChange}
+                        required
+                    />
                 </div>
                 <div className="container_new_order--el">
-                    <label><p className = "h_result">Имя автора (не обязательно):</p></label>
-                    <input type="text" name="author_name" value={formData.author_name} onChange={handleChange} />
+                    <label><p className="h_result">Имя автора:</p></label>
+                    <input
+                        type="text"
+                        name="author_name"
+                        value={formData.author_name}
+                        onChange={handleChange}
+                    />
                 </div>
                 <div className="container_new_order--el">
-                    <label><p className = "h_result">Отчество автора (не обязательно):</p></label>
-                    <input type="text" name="author_patronymic" value={formData.author_patronymic} onChange={handleChange} />
-                 </div>
-                 <div className="container_new_order--el">
-                     <label><p className = "h_result">Количество книг от 1 до 4 (обязательно):</p></label>
-                     <input type="number" name="quantity" value={formData.quantity} min="1" max="4" onChange={handleChange}/>
-                 </div>
-                 <div className="container_new_order--el">
-                     <label><p className = "h_result">Дата публикации книги (не обязательно):</p></label>
-                     <input
-                         type="date"
-                         name="date_publication"
-                         value={formData.date_publication}
-                         onChange={handleChange}
-                     />
-                 </div>
-                 <button className="new_order-button" type="submit">
-                     Заказать
-                 </button>
-             </form>
-         </div>
-     );
- };
+                    <label><p className="h_result">Отчество автора:</p></label>
+                    <input
+                        type="text"
+                        name="author_patronymic"
+                        value={formData.author_patronymic}
+                        onChange={handleChange}
+                    />
+                </div>
+                <div className="container_new_order--el">
+                    <label><p className="h_result">Количество (1-5):</p></label>
+                    <input
+                        type="number"
+                        name="quantyti"
+                        value={formData.quantyti}
+                        onChange={handleChange}
+                        min="1"
+                        max="5"
+                        required
+                    />
+                </div>
+                <div className="container_new_order--el">
+                    <label><p className="h_result">Год публикации:</p></label>
+                    <input
+                        type="text"
+                        name="date_publication"
+                        value={formData.date_publication}
+                        onChange={handleChange}
+                    />
+                </div>
+                <button className="new_order-button" type="submit">
+                    {id ? 'Сохранить изменения' : 'Создать заказ'}
+                </button>
+            </form>
+        </div>
+    );
+};
 
- export default New;
-
+export default New;

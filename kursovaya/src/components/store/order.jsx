@@ -1,42 +1,35 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import apiClient from '../../api/client';
 import { Link } from 'react-router-dom';
 import './order.css';
 
-const Order = () =>{
-    //TODO переделать запрос заказы
-    const [query, setQuery] = useState('bc.id,title,author_surname,author_name,author_patronymic,quantyti,date_publication kursovaya."Order_catalog"');
-    const [results, setResults] = useState([]);
+const Order = () => {
+    const [orders, setOrders] = useState([]);
     const [error, setError] = useState('');
-    const [searchTerm, setSearchTerm] = useState(''); // Состояние для поиска
+    const [searchTerm, setSearchTerm] = useState('');
+    const [loading, setLoading] = useState(true);
 
-    const fetchData = async () => {
+    const fetchOrders = async () => {
         setError('');
+        setLoading(true);
         try {
-            const response = await axios.get(`https://kursovaya.local/order.php`, {
-                params: { query },
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                withCredentials: true,
-            });
-            setResults(response.data.data || []);
+            const response = await apiClient.get('/orders/');
+            setOrders(response.data.results || []);
         } catch (err) {
-            setError('Произошла ошибка при поиске.');
-            console.error('Ошибка при выполнении запроса:', err.response ? err.response.data : err.message);
+            setError('Произошла ошибка при загрузке заказов.');
+            console.error('Ошибка:', err.response ? err.response.data : err.message);
+        } finally {
+            setLoading(false);
         }
     };
 
-    const handleOrder = async (id) => {
+    const handleDelete = async (id) => {
         try {
-            const response = await axios.get(`https://kursovaya.local/deleteOrder.php`, {
-                params: { id }, withCredentials: true,
-            });
+            const response = await apiClient.delete(`/orders/${id}/`);
 
-            const result = response.data;
-            if (result.success) {
+            if (response.status === 204) {
                 alert('Заказ успешно отменён!');
-                fetchData();
+                fetchOrders();
             } else {
                 alert('Не удалось отменить заказ. Попробуйте снова.');
             }
@@ -47,48 +40,57 @@ const Order = () =>{
     };
 
     useEffect(() => {
+        fetchOrders();
+    }, []);
 
-        fetchData();
-    }, [query]); // Добавляем query в зависимости, чтобы перезапрашивать данные при изменении
-
-    // Функция для обработки ввода в поле поиска
-    const handleSearchChange = (event) => {
-        setSearchTerm(event.target.value);
-    };
-
-    // Фильтрация результатов на основе searchTerm
-    const filteredResults = results.filter(order =>
-        order.title.toLowerCase().includes(searchTerm.toLowerCase())
+    const filteredOrders = orders.filter(order =>
+        order.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.author_surname.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    if (loading) return <div className="main_order_container"><p className="h_result">Загрузка...</p></div>;
+    if (error) return <div className="main_order_container"><p className="h_result error">{error}</p></div>;
+
     return (
-        <div className = "main_order_container">
+        <div className="main_order_container">
             <input
                 type="text"
-                placeholder="Поиск по названию книги..."
+                placeholder="Поиск по названию или автору..."
                 value={searchTerm}
-                onChange={handleSearchChange}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="search-input"
             />
-            <Link to={`/new_order`} className = "table--order">
-                <div className = "order">
-                 <h2 className = "h2--order">Создать заказ</h2>
-               </div>
+
+            <Link to="/new_order" className="table--order">
+                <div className="order">
+                    <h2 className="h2--order">Создать заказ</h2>
+                </div>
             </Link>
-            {filteredResults.length > 0 ? (
-                filteredResults.map((order) => (
-                    <div key={order.id} className = "result_">
-                        <h3 className = "h_result">Код заказа {order.id}</h3>
-                        <p className = "h_result">Название книги: {order.title}</p>
-                        <p className = "h_result">Фамилия автора: {order.author_surname}</p>
-                        <p className = "h_result">Имя автора: {order.author_name}</p>
-                        <p className = "h_result">Отчество автора: {order.author_patronymic}</p>
-                        <p className = "h_result">Количество книг: {order.quantyti}</p>
-                        <p className = "h_result">Дата публикации: {order.date_publication}</p>
-                        <button onClick={() => handleOrder(order.id)} className = "main_order-button">Отменить заказ</button>
+
+            {filteredOrders.length > 0 ? (
+                filteredOrders.map((order) => (
+                    <div key={order.id} className="result_">
+                        <h3 className="h_result">Код заказа: {order.id}</h3>
+                        <p className="h_result">Название книги: {order.title}</p>
+                        <p className="h_result">Автор: {order.author_surname} {order.author_name} {order.author_patronymic}</p>
+                        <p className="h_result">Количество: {order.quantyti}</p>
+                        <p className="h_result">Год публикации: {order.date_publication}</p>
+                        <button
+                            onClick={() => handleDelete(order.id)}
+                            className="main_order-button"
+                        >
+                            Отменить заказ
+                        </button>
+                        <Link
+                            to={`/new_order/${order.id}`}
+                            className="main_order-button edit-button"
+                        >
+                            Редактировать
+                        </Link>
                     </div>
                 ))
             ) : (
-                <p className = "h_result">Заказы не найдены.</p>
+                <p className="h_result">Заказы не найдены.</p>
             )}
         </div>
     );

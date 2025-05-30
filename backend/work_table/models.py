@@ -95,6 +95,11 @@ class BooksCatalog(models.Model):
     quantity_remaining = models.IntegerField()
     cover = models.ImageField(upload_to='covers/', blank=True, null=True)
     date_publication = models.TextField()
+    genres = models.ManyToManyField(
+        'GenresCatalog',
+        through='BooksGenres',
+        related_name='books'
+    )
 
     class Meta:
         db_table = 'Books_catalog'
@@ -114,6 +119,15 @@ class BooksCatalog(models.Model):
 
     def authors(self):
         return AuthorsCatalog.objects.filter(authorsbooks__book=self)
+
+    @property
+    def genres_list(self):
+        if not hasattr(self, '_cached_genres'):
+            self._cached_genres = list(self.genres.all())
+        return self._cached_genres
+
+    def get_genres_names(self):
+        return ", ".join(g.name for g in self.genres_list)
 
 
 class Comments(models.Model):
@@ -165,7 +179,7 @@ class ReadersCatalog(models.Model):
     consists_of = models.DateField()
     re_registration = models.DateField(blank=True, null=True)
     phone = models.TextField()
-    login = models.TextField(unique=True)
+    login = models.TextField(unique=True, blank=False, null=False)
     password = models.TextField()
     mail = models.TextField()
     admin = models.BooleanField()
@@ -174,3 +188,26 @@ class ReadersCatalog(models.Model):
         managed = True
         db_table = 'Readers_catalog'
         unique_together = [('passport_series', 'passport_number')]
+
+
+class GenresCatalog(models.Model):
+    id = models.AutoField(primary_key=True)
+    name = models.TextField(unique=True)
+
+    class Meta:
+        managed = True
+        db_table = 'Genres_catalog'
+
+    def __str__(self):
+        return self.name
+
+
+class BooksGenres(models.Model):
+    id = models.AutoField(primary_key=True)
+    book = models.ForeignKey('BooksCatalog', models.CASCADE)
+    genre = models.ForeignKey('GenresCatalog', models.CASCADE)
+
+    class Meta:
+        managed = True
+        db_table = 'Books_Genres'
+        unique_together = (('book', 'genre'),)

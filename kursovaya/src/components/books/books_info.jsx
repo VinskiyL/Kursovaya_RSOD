@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import apiClient from '../../api/client';
 import './books_info.css';
-//TODO ссылка на брони
+
 const Books_info = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -16,6 +16,13 @@ const Books_info = () => {
     const userData = useSelector((state) => state.user.data);
     const isAuthenticated = !!userData;
 
+    const getLocalISODate = () => {
+      const date = new Date();
+      const offset = date.getTimezoneOffset();
+      const localDate = new Date(date.getTime() - (offset * 60 * 1000));
+      return localDate.toISOString().split('T')[0];
+    };
+
     useEffect(() => {
         if (!id) {
             setError('ID книги не указан');
@@ -23,9 +30,7 @@ const Books_info = () => {
             return;
         }
 
-        // Устанавливаем сегодняшнюю дату по умолчанию
-        const today = new Date().toISOString().split('T')[0];
-        setIssueDate(today);
+        setIssueDate(getLocalISODate());
 
         const fetchBookDetails = async () => {
             try {
@@ -58,8 +63,7 @@ const Books_info = () => {
             const response = await apiClient.post('/bookings/', {
                 index: book.id,
                 quantity: quantity,
-                date_issue: issueDate, // Передаем только дату выдачи
-                // date_return будет установлен на бэкенде
+                date_issue: issueDate,
             });
 
             if (response.status === 201) {
@@ -86,7 +90,7 @@ const Books_info = () => {
 
     const handleDateChange = (e) => {
         const selectedDate = e.target.value;
-        const today = new Date().toISOString().split('T')[0];
+        const today = getLocalISODate();
 
         if (selectedDate < today) {
             setError('Дата выдачи не может быть раньше сегодняшнего дня');
@@ -122,6 +126,21 @@ const Books_info = () => {
                         ))?.reduce((prev, curr) => [prev, ', ', curr]) || 'Не указаны'}
                     </div>
 
+                    {/* Добавленный блок для отображения жанров */}
+                    <div className="book-genres">
+                        <strong>Жанры:</strong>
+                        {book.genres?.length > 0 ? (
+                            book.genres.map((genre, index) => (
+                                <span key={genre.id}>
+                                    {genre.name}
+                                    {index < book.genres.length - 1 ? ', ' : ''}
+                                </span>
+                            ))
+                        ) : (
+                            <span>Не указаны</span>
+                        )}
+                    </div>
+
                     <p><strong>Место издания:</strong> {book.place_publication || 'Не указано'}</p>
                     <p><strong>Информация об издательстве:</strong> {book.information_publication || 'Не указано'}</p>
                     <p><strong>Год издания:</strong> {book.date_publication || 'Не указан'}</p>
@@ -150,7 +169,12 @@ const Books_info = () => {
             {userData && (
                 <div className="booking-section">
                     {bookingSuccess ? (
-                        <p className="success-message">Книга успешно забронирована!</p>
+                        <div className="booking-success-container">
+                            <p className="success-message">Книга успешно забронирована!</p>
+                            <Link to="/booking" className="go_booking">
+                                <h2>Перейти к моим броням</h2>
+                            </Link>
+                        </div>
                     ) : (
                         <div className="booking-controls">
                             <div className="quantity-selector">
@@ -172,7 +196,7 @@ const Books_info = () => {
                                     id="issue-date"
                                     value={issueDate}
                                     onChange={handleDateChange}
-                                    min={new Date().toISOString().split('T')[0]}
+                                    min={getLocalISODate()}
                                     className="date-input"
                                 />
                             </div>
