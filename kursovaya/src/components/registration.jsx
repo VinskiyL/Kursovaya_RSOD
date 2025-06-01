@@ -3,6 +3,7 @@ import apiClient from '../api/client'; // Используем настроен�
 import './registration.css';
 //TODO хешировать пароль перед отправкой
 //TODO выводить сообщения с бэка
+
 const Registration = () => {
     const initialFormState = {
         surname: '',
@@ -31,13 +32,27 @@ const Registration = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [registrationSuccess, setRegistrationSuccess] = useState(false);
 
+    // Опции для поля образования
+    const educationOptions = [
+        { value: '', label: 'Выберите образование' },
+        { value: 'secondary', label: 'Среднее' },
+        { value: 'special', label: 'Среднее специальное' },
+        { value: 'higher', label: 'Высшее' }
+    ];
+
     // Конфигурация полей формы
     const fieldsConfig = [
         { label: 'Фамилия', name: 'surname', required: true },
         { label: 'Имя', name: 'name', required: true },
         { label: 'Отчество', name: 'patronymic' },
         { label: 'Дата рождения', name: 'birthday', type: 'date', required: true },
-        { label: 'Образование', name: 'education', required: true },
+        {
+            label: 'Образование',
+            name: 'education',
+            type: 'select',
+            options: educationOptions,
+            required: true
+        },
         { label: 'Профессия', name: 'profession' },
         { label: 'Место учёбы', name: 'educational_inst' },
         { label: 'Город', name: 'city', required: true },
@@ -176,24 +191,42 @@ const Registration = () => {
             <h2 className="h2">Регистрация нового пользователя</h2>
             <form onSubmit={handleSubmit} noValidate>
                 <div className="form-grid">
-                    {fieldsConfig.map(({ label, name, type = 'text', required, placeholder, pattern }) => (
+                    {fieldsConfig.map(({ label, name, type = 'text', required, placeholder, pattern, options }) => (
                         <div className={`form-group ${errors[name] ? 'has-error' : ''}`} key={name}>
                             <label htmlFor={name}>
                                 {label}
                                 {required && <span className="required-asterisk">*</span>}
                             </label>
-                            <input
-                                id={name}
-                                type={type}
-                                name={name}
-                                value={formData[name]}
-                                onChange={handleChange}
-                                onBlur={(e) => validateField(name, e.target.value)}
-                                required={required}
-                                placeholder={placeholder}
-                                disabled={isSubmitting}
-                                pattern={pattern}
-                            />
+
+                            {type === 'select' ? (
+                                <select
+                                    id={name}
+                                    name={name}
+                                    value={formData[name]}
+                                    onChange={handleChange}
+                                    required={required}
+                                    disabled={isSubmitting}
+                                >
+                                    {options.map(option => (
+                                        <option key={option.value} value={option.value}>
+                                            {option.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <input
+                                    id={name}
+                                    type={type}
+                                    name={name}
+                                    value={formData[name]}
+                                    onChange={handleChange}
+                                    onBlur={(e) => validateField(name, e.target.value)}
+                                    required={required}
+                                    placeholder={placeholder}
+                                    disabled={isSubmitting}
+                                    pattern={pattern}
+                                />
+                            )}
                             {errors[name] && <div className="error-text">{errors[name]}</div>}
                         </div>
                     ))}
@@ -205,6 +238,7 @@ const Registration = () => {
                     <button
                         type="submit"
                         className="submit-button"
+                        disabled={isSubmitting}
                     >
                         {isSubmitting ? 'Регистрация...' : 'Зарегистрироваться'}
                     </button>

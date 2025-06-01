@@ -148,6 +148,7 @@ const Booking = () => {
                             <h3>{booking.book_title}</h3>
                             <div className="booking-meta">
                                 <p><strong>ID:</strong> {booking.id}</p>
+                                <p><strong>Количество:</strong> {booking.quantity || 1}</p>
                                 <p><strong>Дата выдачи:</strong> {new Date(booking.date_issue).toLocaleDateString()}</p>
                                 <p><strong>Дата возврата:</strong> {new Date(booking.date_return).toLocaleDateString()}</p>
                                 <p><strong>Статус:</strong>
@@ -161,7 +162,8 @@ const Booking = () => {
                                 </p>
                             </div>
 
-                            {!booking.issued && !booking.returned && (
+                            {/* Показываем кнопку отмены только если issued=false */}
+                            {!booking.issued && (
                                 <div className="cancel-button-container">
                                     <button
                                         onClick={() => cancelBooking(booking.id)}

@@ -5,7 +5,8 @@ from .views import (
     BookListView, BookDetailView, PopularBooksView,
     CommentListCreateView, CommentDetailView, UserBookingsListView,
     BookingDetailView, BookingListCreateView, UserBookingsView,
-    ProfileUpdateView, OrderDetailView, OrderListView
+    ProfileUpdateView, OrderListView, StatisticsView,
+    BookAdminView
 )
 
 urlpatterns = [
@@ -26,5 +27,8 @@ urlpatterns = [
     path('bookings/my/', UserBookingsView.as_view(), name='user-bookings'),
     path('profile/update/', ProfileUpdateView.as_view(), name='profile-update'),
     path('orders/', OrderListView.as_view(), name='order-list'),
-    path('orders/<int:id>/', OrderDetailView.as_view(), name='order-detail'),
+    path('orders/<int:id>/', OrderListView.as_view(), name='order-detail'),
+    path('statistics/', StatisticsView.as_view(), name='statistics'),
+    path('admin/books/', BookAdminView.as_view(), name='admin-books-list'),
+    path('admin/books/<int:book_id>/', BookAdminView.as_view(), name='admin-books-detail'),
 ]

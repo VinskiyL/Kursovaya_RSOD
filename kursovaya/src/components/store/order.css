@@ -1,117 +1,267 @@
-.container_order--form {
-    display: flex; /* Используем flexbox для расположения элементов */
-    flex-direction: column; /* Располагаем элементы в столбик */
+.main_order_container {
+    padding: 30px 20px;
+    font-family: 'Poppins', sans-serif;
+    max-width: 1200px;
+    margin: 0 auto;
+    box-sizing: border-box;
 }
 
-.container_order--el{
-    display: flex; /* Используем flexbox для расположения элементов */
-    flex-direction: column; /* Располагаем элементы в столбик */
-    max-width: 50%;
+.main_order_container h2 {
+    font-size: 1.8em;
+    color: #002137;
+    margin-bottom: 25px;
+    text-align: center;
+    font-weight: 600;
 }
 
-input:focus {
+.search-controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+}
+
+.search-input {
+    padding: 12px 16px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    flex-grow: 1;
+    min-width: 200px;
+}
+
+.search-input:focus {
     outline: none;
     border-color: #a3c1bf;
-    box-shadow: 0 0 5px rgba(163, 193, 191, 0.5);
+    box-shadow: 0 0 0 3px rgba(163, 193, 191, 0.2);
 }
 
-input[type="number"] {
-    flex: 1; /* Занимает все доступное пространство */
-    padding: 10px; /* Отступ внутри поля ввода */
-    border: 1px solid #ccc; /* Граница поля ввода */
-    border-radius: 4px; /* Закругленные углы */
-    font-size: 16px; /* Размер шрифта */
-}
-
-input[type="date"] {
-    flex: 1; /* Занимает все доступное пространство */
-    padding: 10px; /* Отступ внутри поля ввода */
-    border: 1px solid #ccc; /* Граница поля ввода */
-    border-radius: 4px; /* Закругленные углы */
-    font-size: 16px; /* Размер шрифта */
-}
-
-.order-button, .main_order-button{
-    background: none; /* Убираем фон кнопки */
-    border: none; /* Убираем границу кнопки */
-    cursor: pointer; /* Курсор при наведении */
-    padding: 0; /* Убираем отступы */
-    transition: all 0.3s ease-in-out;
-    margin: 5px auto;
-    margin-left: 0;
-}
-
-.order-button:hover{
-    transform: scale(1.1);
-}
-
-.main_order_container {
-    display: flex;
-    flex-direction: column;
-    gap: 10px; /* Отступ между элементами */
-}
-
-.h2--order{
-    font-family: 'Poppins', sans-serif;
-    font-size: 1.5em;
-    transition: all 0.3s ease-in-out;
-    margin:0px;
-    padding: 7px;
-    margin-bottom: 5px;
-    color: #002137;
-}
-
-.table--order{
-    text-decoration: none;
-    margin-top: 5px;
-    width: 45%; /* Ширина элементов */
-    margin-bottom: 5px; /* Отступ между строками */
-}
-
-.table--order:hover .h2--order{
-    color: #9db2ad;
-}
-
-.main_order-button {
-    background-color: #ebebe8; /* Указание цвета фона */
-    border-radius: 2px;
-    padding: 10px 20px; /* Отступы внутри кнопки (вертикально 15px, горизонтально 30px) */
-    text-align: center; /* Центрирование текста */
-    display: inline-block; /* Позволяет задать ширину и высоту кнопки */
-    font-size: 16px; /* Размер шрифта (по желанию) */
-    cursor: pointer; /* Указатель при наведении */
-    font-family: 'Poppins', sans-serif;
-}
-
-.main_order-button:hover{
-    transform: scale(1.1);
-}
-
-.add_book {
-    display: block; /* Изменено на block для центрирования */
-    font-family: 'Poppins', sans-serif;
-    font-size: 1.1em;
-    color: white;
+.search-button {
+    padding: 12px 24px;
+    font-size: 16px;
+    font-weight: 600;
     background-color: #a3c1bf;
-    padding: 12px 25px;
+    color: white;
     border: none;
     border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.search-button:hover {
+    background-color: #8cb0ad;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.create-order-button {
+    display: inline-block;
+    padding: 12px 24px;
+    margin-bottom: 30px;
+    font-size: 16px;
+    font-weight: 600;
+    background-color: #a3c1bf;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
     text-decoration: none;
     text-align: center;
+}
+
+.create-order-button:hover {
+    background-color: #8cb0ad;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.orders-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 25px;
+    margin: 30px 0;
+}
+
+.order-card {
+    background-color: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.order-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+}
+
+.order-card h3 {
+    font-size: 1.2em;
+    color: #002137;
+    margin: 0 0 10px 0;
+    line-height: 1.3;
+    min-height: 3.6em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.order-meta {
+    font-size: 1.0em;
+    color: #666;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin: 0 0 15px 0;
+    flex-grow: 1;
+}
+
+.order-meta strong {
+    color: #002137;
+    font-weight: 500;
+}
+
+.cancel-button {
+    padding: 8px 16px;
+    background-color: #a3c1bf;
+    color: white;
+    text-decoration: none;
+    border-radius: 6px;
+    font-size: 1.0em;
+    font-weight: 600;
+    border: none;
     cursor: pointer;
-    transition: all 0.3s ease-in-out;
-    margin: 0 auto 25px auto; /* Автоматические отступы по бокам для центрирования */
-    width: fit-content; /* Ширина по содержимому */
-    max-width: 95%; /* Максимальная ширина */
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    width: 100%;
 }
 
-.add_book:hover {
-    background-color: #8fb0ad;
-    transform: scale(1.05);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+.cancel-button:hover {
+    background-color: #8cb0ad;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
-.add_book:active {
-    transform: scale(0.98);
+.no-orders {
+    text-align: center;
+    color: #666;
+    font-size: 1.1em;
+    margin: 40px 0;
+    grid-column: 1 / -1;
 }
+
+.cancel-button-container {
+    margin-top: auto;
+}
+
+.error-message {
+    color: #dc3545;
+    background-color: rgba(220, 53, 69, 0.1);
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.retry-button {
+    padding: 10px 20px;
+    background-color: #a3c1bf;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 15px;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.retry-button:hover {
+    background-color: #8cb0ad;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin: 30px 0;
+    flex-wrap: wrap;
+}
+
+.pagination button {
+    padding: 8px 16px;
+    background-color: white;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.95em;
+}
+
+.pagination button:hover:not(:disabled) {
+    background-color: #f5f5f5;
+}
+
+.pagination button.active {
+    background-color: #a3c1bf;
+    color: white;
+    border-color: #a3c1bf;
+}
+
+.pagination button:disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+/* Адаптивность */
+@media (max-width: 1024px) {
+    .orders-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .main_order_container {
+        padding: 20px 15px;
+    }
+
+    .search-controls {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .search-input,
+    .search-button {
+        width: 100%;
+    }
+
+    .orders-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+    }
+}
+
+@media (max-width: 480px) {
+    .orders-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .main_order_container h2 {
+        font-size: 1.5em;
+    }
+
+    .pagination button {
+        padding: 6px 12px;
+        font-size: 0.85em;
+    }
+}
+

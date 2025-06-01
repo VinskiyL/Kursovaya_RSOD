@@ -247,13 +247,13 @@ class OrderSerializer(serializers.ModelSerializer):
         model = OrderCatalog
         fields = [
             'id', 'title', 'author_surname', 'author_name', 'author_patronymic',
-            'quantyti', 'reader', 'date_publication'
+            'quantyti', 'reader', 'date_publication', 'confirmed'
         ]
-        read_only_fields = ['reader']  # Запрещаем напрямую менять читателя
+        read_only_fields = ['reader', 'confirmed']
         extra_kwargs = {
             'quantyti': {
                 'min_value': 1,
-                'max_value': 10  # Максимальное количество для заказа
+                'max_value': 5
             },
             'title': {'required': True},
             'author_surname': {'required': True}
@@ -276,3 +276,10 @@ class OrderSerializer(serializers.ModelSerializer):
                     'date_publication': 'Год публикации должен быть в формате YYYY'
                 })
         return data
+
+class StatisticsSerializer(serializers.Serializer):
+    books = serializers.IntegerField()
+    users = serializers.IntegerField()
+    orders = serializers.IntegerField()
+    bookings = serializers.IntegerField()
+    debtors = serializers.IntegerField()

@@ -1,107 +1,206 @@
+/* main_admin.css */
 .admin-wrapper {
     display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    padding: 20px;
-    flex: 1;
+    min-height: 100vh;
     font-family: 'Poppins', sans-serif;
-    background-color: #f9f9f9; /* Фон как у форм */
+    background-color: #f5f7fa;
+    padding: 30px;
+    box-sizing: border-box;
+    gap: 20px;
+    align-items: stretch; /* Добавлено для выравнивания высоты */
 }
 
-/* Левая панель со ссылками */
 .admin-box {
-    background-color: #ffffff; /* Белый вместо #ebebe8 */
-    border: 1px solid #a3c1bf; /* Цвет как у фокуса инпутов */
-    border-radius: 12px; /* Как у форм */
-    padding: 30px 40px; /* Чуть меньше padding */
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); /* Тень как у форм */
-    width: 60%;
-    max-width: 500px;
+    flex: 3;
+    background-color: white;
+    border-radius: 12px;
+    padding: 30px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    display: flex;
+    flex-direction: column;
 }
 
 .admin-title {
-    font-size: 2em;
-    color: #0d2b36; /* Как заголовки форм */
-    margin-bottom: 25px; /* Чуть меньше отступ */
-    text-align: center; /* Центрируем как в формах */
+    font-size: 1.8em;
+    color: #002137;
+    margin-bottom: 30px;
+    font-weight: 600;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #a3c1bf;
 }
 
 .admin-link-list {
     list-style: none;
     padding: 0;
     margin: 0;
+    flex-grow: 1; /* Занимает все доступное пространство */
     display: flex;
     flex-direction: column;
-    gap: 12px; /* Чуть меньше отступ */
+    justify-content: space-around; /* Равномерное распределение ссылок */
+}
+
+.admin-link-list li {
+    margin-bottom: 15px;
+    flex-grow: 1;
+    display: flex;
 }
 
 .admin-link {
+    display: flex;
+    align-items: center;
+    padding: 12px 20px;
     text-decoration: none;
-    color: white;
-    font-size: 1.2em; /* Чуть меньше размер */
-    padding: 12px 15px; /* Как кнопки в формах */
-    border-radius: 8px; /* Как у кнопок */
-    transition: all 0.3s ease-in-out;
-    display: block;
-    text-align: center;
-    background-color: #a3c1bf;
+    color: #002137;
+    font-size: 1.1em;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    background-color: #f8f9fa;
+    flex-grow: 1;
 }
 
 .admin-link:hover {
-    background-color: #a3c1bf; /* Цвет кнопок */
-    color: white; /* Белый текст при наведении */
-    transform: scale(1.02); /* Более мягкое увеличение */
-    box-shadow: 0 2px 5px rgba(163, 193, 191, 0.3); /* Тень как у инпутов */
+    background-color: #a3c1bf;
+    color: white;
+    transform: translateX(5px);
 }
 
-/* Правая панель со статистикой */
 .admin-stats {
-    background-color: #ffffff;
-    border: 1px solid #a3c1bf;
+    flex: 1;
+    min-width: 250px;
+    background-color: white;
     border-radius: 12px;
-    padding: 25px 30px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    width: 35%;
-    max-width: 300px;
+    padding: 30px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    display: flex;
+    flex-direction: column;
 }
 
 .stats-title {
-    font-size: 1.5em; /* Чуть меньше */
-    color: #0d2b36;
-    margin-bottom: 20px;
+    font-size: 1.5em;
+    color: #002137;
+    margin-bottom: 25px;
+    font-weight: 600;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #a3c1bf;
 }
 
 .stats-cards {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 15px;
+    flex-grow: 1;
+    justify-content: space-around; /* Равномерное распределение карточек */
 }
 
 .stat-card {
-    background-color: #f9f9f9; /* Как фон форм */
-    padding: 15px;
+    background-color: #f8f9fa;
     border-radius: 8px;
-    border: 1px solid #a3c1bf;
+    padding: 15px;
     transition: all 0.3s ease;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 .stat-card:hover {
-    box-shadow: 0 2px 5px rgba(163, 193, 191, 0.3);
+    background-color: #a3c1bf;
+    color: white;
 }
 
 .stat-card h3 {
     font-size: 1em;
-    color: #0d2b36;
-    margin-bottom: 8px;
+    margin-bottom: 5px;
+    font-weight: 600;
+    text-align: center;
 }
 
 .stat-card p {
-    font-size: 1.5em; /* Чуть меньше */
-    color: #0d2b36;
+    font-size: 1.8em;
     margin: 0;
+    font-weight: 700;
+    text-align: center;
 }
 
 .stats-error {
-    color: #e74c3c; /* Ярко-красный для ошибок */
+    color: #e74c3c;
+    background-color: rgba(231, 76, 60, 0.1);
+    padding: 10px 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    text-align: center;
     font-size: 0.9em;
+}
+
+/* Responsive Styles */
+@media (max-width: 1024px) {
+    .admin-wrapper {
+        flex-direction: column;
+    }
+
+    .admin-link-list {
+        justify-content: flex-start;
+    }
+
+    .stats-cards {
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: space-between;
+    }
+
+    .stat-card {
+        min-width: 45%;
+    }
+}
+
+@media (max-width: 768px) {
+    .admin-wrapper {
+        padding: 20px;
+        gap: 20px;
+    }
+
+    .admin-box, .admin-stats {
+        padding: 25px;
+    }
+
+    .admin-title {
+        font-size: 1.6em;
+        margin-bottom: 25px;
+    }
+
+    .stats-title {
+        font-size: 1.4em;
+        margin-bottom: 20px;
+    }
+
+    .admin-link {
+        padding: 12px 18px;
+    }
+
+    .stats-cards {
+        gap: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .admin-wrapper {
+        padding: 15px;
+        gap: 15px;
+    }
+
+    .admin-title {
+        font-size: 1.4em;
+    }
+
+    .stats-title {
+        font-size: 1.2em;
+    }
+
+    .stat-card {
+        min-width: 100%;
+    }
+
+    .stat-card p {
+        font-size: 1.5em;
+    }
 }

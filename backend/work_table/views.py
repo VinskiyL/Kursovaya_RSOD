@@ -6,12 +6,17 @@ from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 from .models import ReadersCatalog
 from .serializers import ReadersCatalogSerializer
 import time
+from rest_framework.exceptions import PermissionDenied
 import logging
 from datetime import datetime
+from django.utils import timezone
 from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
-from .serializers import BookListSerializer, BookDetailSerializer, PopularBookSerializer, BookingSerializer, BookingCreateSerializer
+from .serializers import (
+    BookListSerializer, BookDetailSerializer, PopularBookSerializer,
+    BookingSerializer, BookingCreateSerializer, StatisticsSerializer
+)
 from .filters import BookFilter
 from django.core.cache import cache
 from django.db.models import Prefetch
@@ -736,7 +741,7 @@ class ProfileUpdateView(APIView):
 
 class OrderListView(APIView):
     """
-    Список заказов и создание нового заказа с проверкой через куки
+    Список заказов, создание и удаление заказа (без редактирования и просмотра деталей)
     """
     filter_backends = [DjangoFilterBackend]
     filterset_class = OrderFilter
@@ -769,13 +774,10 @@ class OrderListView(APIView):
             reader=user
         ).select_related('reader').order_by('-id')
 
-        # Применяем фильтрацию
+        # Фильтрация и пагинация
         queryset = self.filterset_class(request.GET, queryset=queryset).qs
-
-        # Применяем пагинацию
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(queryset, request)
-
         serializer = OrderSerializer(page if page is not None else queryset, many=True)
 
         return paginator.get_paginated_response(serializer.data) if page is not None else Response(serializer.data)
@@ -798,19 +800,99 @@ class OrderListView(APIView):
 
         try:
             serializer.save(reader=user)
-            logger.info(f"User {user.id} created new order")
+            logger.info(f"User {user.id} создал заказ: {serializer.data}")
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         except Exception as e:
-            logger.error(f"Order creation failed for user {user.id}: {str(e)}")
+            logger.error(f"Ошибка создания заказа: {str(e)}")
             return Response(
                 {"detail": "Ошибка при создании заказа"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    def delete(self, request, id):
+        """Удаление заказа"""
+        user = self.get_user_from_token(request)
+        if not user:
+            return Response(
+                {"detail": "Требуется авторизация"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
 
-class OrderDetailView(APIView):
+        try:
+            order = OrderCatalog.objects.get(id=id, reader=user)
+            order.delete()
+            logger.info(f"User {user.id} удалил заказ {id}")
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except OrderCatalog.DoesNotExist:
+            return Response(
+                {"detail": "Заказ не найден или у вас нет прав"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Ошибка удаления заказа: {str(e)}")
+            return Response(
+                {"detail": "Ошибка сервера при удалении"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class StatisticsView(APIView):
+    def get_user_from_token(self, request):
+        """Получаем пользователя из access_token в куках"""
+        access_token = request.COOKIES.get('access_token')
+        if not access_token:
+            return None
+
+        try:
+            token = AccessToken(access_token)
+            user = ReadersCatalog.objects.get(id=token['user_id'])
+            return user
+        except Exception as e:
+            logger.error(f"Ошибка получения пользователя из токена: {e}")
+            return None
+
+    def get(self, request):
+        # Проверка прав администратора
+        user = self.get_user_from_token(request)
+        if not user or not user.admin:
+            return Response(
+                {"detail": "Требуются права администратора"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        try:
+            # Получаем все данные за минимальное количество запросов
+            current_date = timezone.now().date()
+
+            # Основная статистика
+            stats = {
+                'books': BooksCatalog.objects.count(),
+                'users': ReadersCatalog.objects.count(),
+                'orders': OrderCatalog.objects.filter(confirmed=False).count(),
+                'bookings': BookingCatalog.objects.filter(returned=False).count(),
+            }
+
+            # Должники - только выданные и не возвращенные книги с просроченной датой
+            stats['debtors'] = BookingCatalog.objects.filter(
+                issued=True,
+                returned=False,
+                date_return__lt=current_date
+            ).values('reader').distinct().count()
+
+            serializer = StatisticsSerializer(stats)
+            return Response(serializer.data)
+
+        except Exception as e:
+            logger.error(f"Ошибка при получении статистики: {str(e)}")
+            return Response(
+                {"error": "Произошла ошибка при загрузке статистики"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class BookAdminView(APIView):
     """
-    Детали заказа, обновление и удаление с проверкой через куки
+    Административный интерфейс для управления книгами (CRUD)
     """
 
     def get_user_from_token(self, request):
@@ -827,135 +909,172 @@ class OrderDetailView(APIView):
             logger.error(f"Ошибка получения пользователя из токена: {e}")
             return None
 
-    def get_order(self, order_id, user):
-        """Получаем заказ с проверкой принадлежности пользователю"""
-        try:
-            return OrderCatalog.objects.get(id=order_id, reader=user)
-        except OrderCatalog.DoesNotExist:
-            return None
-
-    def get(self, request, id):
-        """Получение деталей заказа"""
+    def check_admin_permissions(self, request):
+        """Проверяем, что пользователь является администратором"""
         user = self.get_user_from_token(request)
-        if not user:
-            return Response(
-                {"detail": "Требуется авторизация: access_token не найден или недействителен"},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
+        if not user or not user.admin:
+            raise PermissionDenied("Требуются права администратора")
+        return user
 
-        order = self.get_order(id, user)
-        if not order:
-            return Response(
-                {"detail": "Заказ не найден или у вас нет к нему доступа"},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        serializer = OrderSerializer(order)
-        return Response(serializer.data)
-
-    def put(self, request, id):
-        """Полное обновление заказа"""
-        user = self.get_user_from_token(request)
-        if not user:
-            return Response(
-                {"detail": "Требуется авторизация: access_token не найден или недействителен"},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
-
-        order = self.get_order(id, user)
-        if not order:
-            return Response(
-                {"detail": "Заказ не найден или у вас нет к нему доступа"},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        if 'reader' in request.data:
-            return Response(
-                {"detail": "Нельзя изменить читателя заказа"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        serializer = OrderSerializer(order, data=request.data)
-        if not serializer.is_valid():
-            return Response(
-                {"detail": "Ошибка валидации", "errors": serializer.errors},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
+    def post(self, request):
+        """Создание новой книги"""
         try:
-            serializer.save()
-            logger.info(f"User {user.id} updated order {id}")
-            return Response(serializer.data)
+            self.check_admin_permissions(request)
+
+            # Для создания книги используем BookDetailSerializer, так как он содержит все поля
+            serializer = BookDetailSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(
+                    {"detail": "Ошибка валидации", "errors": serializer.errors},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Сохраняем книгу
+            book = serializer.save()
+
+            # Очищаем кеш списка книг
+            cache.delete_many(keys=cache.keys('books_*'))
+            cache.delete('popular_books_top10')
+
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        except PermissionDenied as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_403_FORBIDDEN
+            )
         except Exception as e:
-            logger.error(f"Order update failed: {str(e)}")
+            logger.error(f"Ошибка при создании книги: {str(e)}")
             return Response(
-                {"detail": "Ошибка при обновлении заказа"},
+                {"detail": "Ошибка сервера при создании книги"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    def patch(self, request, id):
-        """Частичное обновление заказа"""
-        user = self.get_user_from_token(request)
-        if not user:
-            return Response(
-                {"detail": "Требуется авторизация: access_token не найден или недействителен"},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
-
-        order = self.get_order(id, user)
-        if not order:
-            return Response(
-                {"detail": "Заказ не найден или у вас нет к нему доступа"},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        if 'reader' in request.data:
-            return Response(
-                {"detail": "Нельзя изменить читателя заказа"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        serializer = OrderSerializer(order, data=request.data, partial=True)
-        if not serializer.is_valid():
-            return Response(
-                {"detail": "Ошибка валидации", "errors": serializer.errors},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
+    def put(self, request, book_id):
+        """Полное обновление книги"""
         try:
+            self.check_admin_permissions(request)
+
+            try:
+                book = BooksCatalog.objects.get(pk=book_id)
+            except BooksCatalog.DoesNotExist:
+                return Response(
+                    {"detail": "Книга не найдена"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            serializer = BookDetailSerializer(book, data=request.data)
+            if not serializer.is_valid():
+                return Response(
+                    {"detail": "Ошибка валидации", "errors": serializer.errors},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
             serializer.save()
-            logger.info(f"User {user.id} updated order {id}")
+
+            # Очищаем кеш
+            cache.delete_many(keys=cache.keys('books_*'))
+            cache.delete('popular_books_top10')
+            cache.delete(f'book_{book_id}')
+
             return Response(serializer.data)
-        except Exception as e:
-            logger.error(f"Order update failed: {str(e)}")
+
+        except PermissionDenied as e:
             return Response(
-                {"detail": "Ошибка при обновлении заказа"},
+                {"detail": str(e)},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        except Exception as e:
+            logger.error(f"Ошибка при обновлении книги: {str(e)}")
+            return Response(
+                {"detail": "Ошибка сервера при обновлении книги"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    def delete(self, request, id):
-        """Удаление заказа"""
-        user = self.get_user_from_token(request)
-        if not user:
-            return Response(
-                {"detail": "Требуется авторизация: access_token не найден или недействителен"},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
-
-        order = self.get_order(id, user)
-        if not order:
-            return Response(
-                {"detail": "Заказ не найден или у вас нет к нему доступа"},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
+    def patch(self, request, book_id):
+        """Частичное обновление книги"""
         try:
-            order.delete()
-            logger.info(f"User {user.id} deleted order {id}")
+            self.check_admin_permissions(request)
+
+            try:
+                book = BooksCatalog.objects.get(pk=book_id)
+            except BooksCatalog.DoesNotExist:
+                return Response(
+                    {"detail": "Книга не найдена"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            serializer = BookDetailSerializer(book, data=request.data, partial=True)
+            if not serializer.is_valid():
+                return Response(
+                    {"detail": "Ошибка валидации", "errors": serializer.errors},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            serializer.save()
+
+            # Очищаем кеш
+            cache.delete_many(keys=cache.keys('books_*'))
+            cache.delete('popular_books_top10')
+            cache.delete(f'book_{book_id}')
+
+            return Response(serializer.data)
+
+        except PermissionDenied as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        except Exception as e:
+            logger.error(f"Ошибка при частичном обновлении книги: {str(e)}")
+            return Response(
+                {"detail": "Ошибка сервера при обновлении книги"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def delete(self, request, book_id):
+        """Удаление книги"""
+        try:
+            self.check_admin_permissions(request)
+
+            try:
+                book = BooksCatalog.objects.get(pk=book_id)
+            except BooksCatalog.DoesNotExist:
+                return Response(
+                    {"detail": "Книга не найдена"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Проверяем, нет ли активных бронирований для этой книги
+            active_bookings = BookingCatalog.objects.filter(
+                index=book,
+                issued=True,
+                returned=False
+            ).exists()
+
+            if active_bookings:
+                return Response(
+                    {"detail": "Невозможно удалить книгу, так как есть активные бронирования"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            book.delete()
+
+            # Очищаем кеш
+            cache.delete_many(keys=cache.keys('books_*'))
+            cache.delete('popular_books_top10')
+            cache.delete(f'book_{book_id}')
+
             return Response(status=status.HTTP_204_NO_CONTENT)
-        except Exception as e:
-            logger.error(f"Order deletion failed: {str(e)}")
+
+        except PermissionDenied as e:
             return Response(
-                {"detail": "Ошибка при удалении заказа"},
+                {"detail": str(e)},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        except Exception as e:
+            logger.error(f"Ошибка при удалении книги: {str(e)}")
+            return Response(
+                {"detail": "Ошибка сервера при удалении книги"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

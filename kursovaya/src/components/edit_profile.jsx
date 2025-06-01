@@ -193,7 +193,6 @@ function EditProfile() {
         try {
             // Отправляем данные без подтверждения пароля
             const dataToSend = {...userData};
-            delete dataToSend.confirm_password;
 
             // Если пароль не меняется - не отправляем поля с паролями
             if (!userData.new_password) {

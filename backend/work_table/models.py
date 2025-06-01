@@ -32,8 +32,8 @@ class BookingCatalog(models.Model):
     date_issue = models.DateField()
     date_return = models.DateField()
     id = models.AutoField(primary_key=True)
-    issued = models.BooleanField()
-    returned = models.BooleanField()
+    issued = models.BooleanField(default=False)
+    returned = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
         # Получаем текущее состояние из базы, если запись уже существует
@@ -49,15 +49,14 @@ class BookingCatalog(models.Model):
             if not self.date_return:
                 self.date_return = self.date_issue + timedelta(days=30)
 
-        # Обрабатываем выдачу книг
-        if self.issued and (not old_booking or not old_booking.issued):
+            # При создании новой записи сразу вычитаем количество
             if self.index.quantity_remaining < self.quantity:
-                raise ValueError("Недостаточно экземпляров книги для выдачи")
+                raise ValueError("Недостаточно экземпляров книги для бронирования")
             self.index.quantity_remaining -= self.quantity
             self.index.save()
 
-        # Обрабатываем возврат книг
-        if self.returned and (not old_booking or not old_booking.returned):
+        # Обрабатываем возврат книг (только при изменении returned с False на True)
+        if self.returned and (old_booking and not old_booking.returned):
             if not self.issued:
                 raise ValueError("Невозможно вернуть невыданные книги")
             self.index.quantity_remaining += self.quantity
@@ -66,6 +65,15 @@ class BookingCatalog(models.Model):
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
+        # Проверяем условия перед удалением
+        if self.issued and not self.returned:
+            raise ValueError("Невозможно удалить выданную и невозвращенную книгу")
+
+        # Если запись не выдана, возвращаем количество
+        if not self.issued:
+            self.index.quantity_remaining += self.quantity
+            self.index.save()
+
         super().delete(*args, **kwargs)
 
     def mark_as_returned(self):
@@ -75,12 +83,13 @@ class BookingCatalog(models.Model):
             raise ValueError("Книга уже возвращена")
 
         self.returned = True
-        self.save()  # Логика возврата будет в методе save()
+        self.save()
 
     class Meta:
         ordering = ['-date_issue']
         managed = True
         db_table = 'Booking_catalog'
+        unique_together = [('index', 'reader')]
 
 
 class BooksCatalog(models.Model):
@@ -151,6 +160,7 @@ class OrderCatalog(models.Model):
     quantyti = models.IntegerField()
     reader = models.ForeignKey('ReadersCatalog', models.CASCADE)
     date_publication = models.TextField(blank=True, null=True)
+    confirmed = models.BooleanField(default=False)
 
     class Meta:
         managed = True
