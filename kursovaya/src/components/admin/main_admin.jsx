@@ -55,6 +55,7 @@ const Main_adm = () => {
         <ul className="admin-link-list">
           <li><Link to="/books_admin" className="admin-link">Каталог книг</Link></li>
           <li><Link to="/authors_admin" className="admin-link">Каталог авторов</Link></li>
+          <li><Link to="/genres_admin" className="admin-link">Каталог жанров</Link></li>
           <li><Link to="/bookings_admin" className="admin-link">Каталог бронирования</Link></li>
           <li><Link to="/orders_admin" className="admin-link">Каталог заказов</Link></li>
           <li><Link to="/users_admin" className="admin-link">Каталог пользователей</Link></li>

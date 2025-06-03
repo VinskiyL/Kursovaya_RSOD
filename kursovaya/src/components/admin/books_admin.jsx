@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import apiClient from '../../api/client';
 import './books.css';
 
-const BooksAdm = () => {
+const Books_adm = () => {
     const [books, setBooks] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -111,10 +111,6 @@ const BooksAdm = () => {
         <div className="main_order_container">
             <h1 className="admin-title">Управление книгами</h1>
 
-            <Link to="/admin/books/new" className="add-book-button">
-                Добавить новую книгу
-            </Link>
-
             {/* Поисковая форма */}
             <div className="search-controls">
                 <select
@@ -153,6 +149,10 @@ const BooksAdm = () => {
             </div>
 
             {error && <div className="error-message">{error}</div>}
+
+            <Link to="/new_book" className="add-book-button">
+                Добавить новую книгу
+            </Link>
 
             {/* Пагинация сверху */}
             {!offlineMode && pagination.total > pagination.pageSize && (
@@ -197,7 +197,7 @@ const BooksAdm = () => {
                                 </p>
                                 <div className="admin-actions">
                                     <Link
-                                        to={`/admin/books/edit/${book.id}`}
+                                        to={`/new_book/${book.id}`}
                                         className="edit-button"
                                     >
                                         Редактировать
@@ -239,4 +239,4 @@ const BooksAdm = () => {
     );
 };
 
-export default BooksAdm;
+export default Books_adm;

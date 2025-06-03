@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import MainContent from './components/main/main';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import Authors from './components/authors/authors_table';
 import './App.css';
 import Header from './components/header/header';
 import AboutMe from './components/aboutme';
@@ -13,7 +12,6 @@ import PopularBooks from './components/books/popular_books';
 import Error from './components/error/Error404';
 import Footer from './components/footer/footer';
 import BooksInfo from './components/books/books_info'; // Переименовано для соответствия
-import AuthorsInfo from './components/authors/authors_info'; // Переименовано для соответствия
 import { useSelector, useDispatch } from 'react-redux';
 import Booking from './components/store/booking';
 import Order from './components/store/order';
@@ -22,6 +20,7 @@ import { loginSuccess, logout, setTokenChecked } from './components/store/userSl
 import Registration from './components/registration';
 import Main_adm from './components/admin/main_admin';
 import Authors_adm from './components/admin/authors_admin';
+import Genres_adm from './components/admin/genres_admin';
 import Books_adm from './components/admin/books_admin';
 import Bookings_adm from './components/admin/bookings_admin';
 import Comments_adm from './components/admin/comments_admin';
@@ -30,6 +29,7 @@ import Reports_adm from './components/admin/reports_admin';
 import Users_adm from './components/admin/users_admin';
 import New_book from './components/admin/new_book';
 import New_author from './components/admin/new_author';
+import New_genres from './components/admin/new_genres';
 import ProtectedRoute from './components/ProtectedRoute';
 import apiClient from './api/client';
 
@@ -139,6 +139,14 @@ function App() {
                             }
                         />
                         <Route
+                            path="/genres_admin"
+                            element={
+                                <ProtectedRoute requireAdmin={true}>
+                                    <Genres_adm />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
                             path="/books_admin"
                             element={
                                 <ProtectedRoute requireAdmin={true}>
@@ -195,7 +203,7 @@ function App() {
                             }
                         />
                         <Route
-                            path="/new_book/:index"
+                            path="/new_book/:id"
                             element={
                                 <ProtectedRoute requireAdmin={true}>
                                     <New_book />
@@ -211,10 +219,26 @@ function App() {
                             }
                         />
                         <Route
+                            path="/new_genres"
+                            element={
+                                <ProtectedRoute requireAdmin={true}>
+                                    <New_genres />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
                             path="/new_author/:id"
                             element={
                                 <ProtectedRoute requireAdmin={true}>
                                     <New_author />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/new_genres/:id"
+                            element={
+                                <ProtectedRoute requireAdmin={true}>
+                                    <New_genres />
                                 </ProtectedRoute>
                             }
                         />

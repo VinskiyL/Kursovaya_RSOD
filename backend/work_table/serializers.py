@@ -3,7 +3,11 @@ from django.contrib.auth.hashers import make_password, check_password
 from rest_framework.exceptions import ValidationError
 from datetime import date, timedelta
 from rest_framework import serializers
-from .models import BooksCatalog, AuthorsCatalog, Comments, BookingCatalog, GenresCatalog, OrderCatalog
+from .models import(
+    BooksCatalog, AuthorsCatalog, Comments,
+    BookingCatalog, GenresCatalog, OrderCatalog,
+    AuthorsBooks
+)
 
 class GenreSerializer(serializers.ModelSerializer):
     class Meta:
@@ -98,7 +102,6 @@ class AuthorShortSerializer(serializers.ModelSerializer):
     class Meta:
         model = AuthorsCatalog
         fields = ['id', 'author_surname', 'author_name', 'author_patronymic']
-        read_only_fields = fields
 
 class BookListSerializer(serializers.ModelSerializer):
     authors = serializers.SerializerMethodField()
@@ -120,23 +123,68 @@ class BookListSerializer(serializers.ModelSerializer):
     def get_available(self, obj):
         return obj.quantity_remaining > 0
 
-class BookDetailSerializer(BookListSerializer):
-    genres = GenreSerializer(many=True, read_only=True)
 
-    def validate_date_publication(self, value):
-        if not value.isdigit() or len(value) != 4:
-            raise serializers.ValidationError("Год должен быть в формате YYYY")
-        return value
+class BookDetailSerializer(BookListSerializer):
+    authors = AuthorShortSerializer(many=True, required=False)
+    genres = GenreSerializer(many=True, required=False)
+    author_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        write_only=True,
+        required=False
+    )
+    genre_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        write_only=True,
+        required=False
+    )
+
     class Meta(BookListSerializer.Meta):
         fields = BookListSerializer.Meta.fields + [
-            'place_publication', 'information_publication', 'date_publication'
+            'place_publication', 'information_publication', 'date_publication',
+            'authors', 'genres', 'author_ids', 'genre_ids'
         ]
-        read_only_fields = fields
+        read_only_fields = ['authors', 'genres']
 
     def validate_date_publication(self, value):
         if value and (not value.isdigit() or len(value) != 4):
             raise serializers.ValidationError("Год должен быть в формате YYYY")
         return value
+
+    def create(self, validated_data):
+        author_ids = validated_data.pop('author_ids', [])
+        genre_ids = validated_data.pop('genre_ids', [])
+
+        book = super().create(validated_data)
+
+        # Добавляем авторов
+        for author_id in author_ids:
+            AuthorsBooks.objects.create(book=book, author_id=author_id)
+
+        # Добавляем жанры
+        if genre_ids:
+            book.genres.set(genre_ids)
+
+        return book
+
+    def update(self, instance, validated_data):
+        author_ids = validated_data.pop('author_ids', None)
+        genre_ids = validated_data.pop('genre_ids', None)
+
+        book = super().update(instance, validated_data)
+
+        # Обновляем авторов, если переданы
+        if author_ids is not None:
+            # Удаляем старых авторов
+            AuthorsBooks.objects.filter(book=book).delete()
+            # Добавляем новых
+            for author_id in author_ids:
+                AuthorsBooks.objects.create(book=book, author_id=author_id)
+
+        # Обновляем жанры, если переданы
+        if genre_ids is not None:
+            book.genres.set(genre_ids)
+
+        return book
 
 
 class PopularBookSerializer(BookListSerializer):
@@ -283,3 +331,48 @@ class StatisticsSerializer(serializers.Serializer):
     orders = serializers.IntegerField()
     bookings = serializers.IntegerField()
     debtors = serializers.IntegerField()
+
+class AuthorsBooksSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AuthorsBooks
+        fields = ['id', 'author', 'book']
+
+
+class BookCreateSerializer(serializers.ModelSerializer):
+    author_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        write_only=True,
+        required=False
+    )
+    genre_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        write_only=True,
+        required=False
+    )
+
+    class Meta:
+        model = BooksCatalog
+        fields = [
+            'index', 'title', 'place_publication', 'information_publication',
+            'volume', 'quantity_total', 'date_publication', 'cover',
+            'author_ids', 'genre_ids'
+        ]
+
+    def create(self, validated_data):
+        author_ids = validated_data.pop('author_ids', [])
+        genre_ids = validated_data.pop('genre_ids', [])
+
+        # Устанавливаем quantity_remaining равным quantity_total
+        validated_data['quantity_remaining'] = validated_data['quantity_total']
+
+        book = super().create(validated_data)
+
+        # Добавляем авторов
+        for author_id in author_ids:
+            AuthorsBooks.objects.create(book=book, author_id=author_id)
+
+        # Добавляем жанры
+        if genre_ids:
+            book.genres.set(genre_ids)
+
+        return book

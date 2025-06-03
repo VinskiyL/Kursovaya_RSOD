@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth.hashers import check_password, make_password
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
-from .models import ReadersCatalog
+from .models import ReadersCatalog, AuthorsCatalog
 from .serializers import ReadersCatalogSerializer
 import time
 from rest_framework.exceptions import PermissionDenied
@@ -15,12 +15,13 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
 from .serializers import (
     BookListSerializer, BookDetailSerializer, PopularBookSerializer,
-    BookingSerializer, BookingCreateSerializer, StatisticsSerializer
+    BookingSerializer, BookingCreateSerializer, StatisticsSerializer,
+    AuthorShortSerializer, GenreSerializer, BookCreateSerializer
 )
 from .filters import BookFilter
 from django.core.cache import cache
 from django.db.models import Prefetch
-from .models import AuthorsBooks, BookingCatalog, BooksCatalog
+from .models import AuthorsBooks, BookingCatalog, BooksCatalog, GenresCatalog
 from django.db.models import Count, Q
 from rest_framework import generics, permissions
 from .models import Comments
@@ -44,14 +45,12 @@ class PopularBooksView(generics.ListAPIView):
         if not queryset:
             queryset = BooksCatalog.objects.annotate(
                 active_bookings=Count(
-                    'bookingcatalog',  # Имя обратной связи из BookingCatalog в BooksCatalog
+                    'bookingcatalog',
                     filter=Q(bookingcatalog__issued=True) &
                            Q(bookingcatalog__returned=False)
                 )
             ).order_by('-active_bookings')[:10]
-
-            cache.set(cache_key, queryset, timeout=3600)  # Кеш на 1 час
-
+            cache.set(cache_key, queryset, timeout=3600)
         return queryset
 
 
@@ -75,7 +74,7 @@ class BookListView(generics.ListAPIView):
         if not queryset:
             queryset = BooksCatalog.objects.all().prefetch_related(
                 Prefetch('authorsbooks_set', queryset=AuthorsBooks.objects.select_related('author')),
-                Prefetch('genres')  # Добавляем prefetch для жанров
+                Prefetch('genres')
             )
             cache.set(cache_key, queryset, timeout=60 * 15)
         return queryset
@@ -835,6 +834,36 @@ class OrderListView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+class AdminPermissionMixin:
+    """
+    Миксин для проверки прав администратора через куки
+    """
+    def check_admin_permissions(self, request):
+        access_token = request.COOKIES.get('access_token')
+        if not access_token:
+            logger.warning("Access token not found in cookies")
+            raise PermissionDenied("Требуется авторизация")
+
+        try:
+            token = AccessToken(access_token)
+            user = ReadersCatalog.objects.get(id=token['user_id'])
+            if not user.admin:
+                logger.warning(f"User {user.id} attempted admin access without permissions")
+                raise PermissionDenied("Требуются права администратора")
+            return user
+        except Exception as e:
+            logger.error(f"Error verifying admin permissions: {str(e)}")
+            raise PermissionDenied("Недействительный токен")
+
+    def dispatch(self, request, *args, **kwargs):
+        try:
+            self.check_admin_permissions(request)
+            return super().dispatch(request, *args, **kwargs)
+        except PermissionDenied as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
 class StatisticsView(APIView):
     def get_user_from_token(self, request):
@@ -890,191 +919,190 @@ class StatisticsView(APIView):
             )
 
 
-class BookAdminView(APIView):
+class BookAdminListView(AdminPermissionMixin, generics.ListCreateAPIView):
     """
-    Административный интерфейс для управления книгами (CRUD)
+    Административный список книг (с возможностью создания)
     """
+    queryset = BooksCatalog.objects.all().prefetch_related(
+        Prefetch('authorsbooks_set', queryset=AuthorsBooks.objects.select_related('author')),
+        'genres'
+    )
+    serializer_class = BookDetailSerializer
 
-    def get_user_from_token(self, request):
-        """Получаем пользователя из access_token в куках"""
-        access_token = request.COOKIES.get('access_token')
-        if not access_token:
-            return None
+    def create(self, request, *args, **kwargs):
+        serializer = BookCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
 
-        try:
-            token = AccessToken(access_token)
-            user = ReadersCatalog.objects.get(id=token['user_id'])
-            return user
-        except Exception as e:
-            logger.error(f"Ошибка получения пользователя из токена: {e}")
-            return None
+        # Очищаем кеш
+        keys = cache.keys('books_*')  # Redis поддерживает keys()
+        if keys:
+            cache.delete_many(keys)
+        cache.delete('popular_books_top10')
 
-    def check_admin_permissions(self, request):
-        """Проверяем, что пользователь является администратором"""
-        user = self.get_user_from_token(request)
-        if not user or not user.admin:
-            raise PermissionDenied("Требуются права администратора")
-        return user
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
-    def post(self, request):
-        """Создание новой книги"""
-        try:
-            self.check_admin_permissions(request)
 
-            # Для создания книги используем BookDetailSerializer, так как он содержит все поля
-            serializer = BookDetailSerializer(data=request.data)
-            if not serializer.is_valid():
-                return Response(
-                    {"detail": "Ошибка валидации", "errors": serializer.errors},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+class BookAdminDetailView(AdminPermissionMixin, generics.RetrieveUpdateDestroyAPIView):
+    """
+    Детальное представление книги для администратора (CRUD)
+    """
+    queryset = BooksCatalog.objects.all().prefetch_related(
+        Prefetch('authorsbooks_set', queryset=AuthorsBooks.objects.select_related('author')),
+        'genres'
+    )
+    serializer_class = BookDetailSerializer
+    lookup_field = 'id'
 
-            # Сохраняем книгу
-            book = serializer.save()
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
 
-            # Очищаем кеш списка книг
-            cache.delete_many(keys=cache.keys('books_*'))
-            cache.delete('popular_books_top10')
+        # Очищаем кеш
+        keys = cache.keys('books_*')  # Redis поддерживает keys()
+        if keys:
+            cache.delete_many(keys)
+        cache.delete('popular_books_top10')
+        cache.delete(f'book_{instance.id}')
 
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.data)
 
-        except PermissionDenied as e:
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+
+        # Проверяем, нет ли активных бронирований
+        active_bookings = BookingCatalog.objects.filter(
+            index=instance,
+            issued=True,
+            returned=False
+        ).exists()
+
+        if active_bookings:
             return Response(
-                {"detail": str(e)},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        except Exception as e:
-            logger.error(f"Ошибка при создании книги: {str(e)}")
-            return Response(
-                {"detail": "Ошибка сервера при создании книги"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    def put(self, request, book_id):
-        """Полное обновление книги"""
-        try:
-            self.check_admin_permissions(request)
-
-            try:
-                book = BooksCatalog.objects.get(pk=book_id)
-            except BooksCatalog.DoesNotExist:
-                return Response(
-                    {"detail": "Книга не найдена"},
-                    status=status.HTTP_404_NOT_FOUND
-                )
-
-            serializer = BookDetailSerializer(book, data=request.data)
-            if not serializer.is_valid():
-                return Response(
-                    {"detail": "Ошибка валидации", "errors": serializer.errors},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            serializer.save()
-
-            # Очищаем кеш
-            cache.delete_many(keys=cache.keys('books_*'))
-            cache.delete('popular_books_top10')
-            cache.delete(f'book_{book_id}')
-
-            return Response(serializer.data)
-
-        except PermissionDenied as e:
-            return Response(
-                {"detail": str(e)},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        except Exception as e:
-            logger.error(f"Ошибка при обновлении книги: {str(e)}")
-            return Response(
-                {"detail": "Ошибка сервера при обновлении книги"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"detail": "Невозможно удалить книгу, так как есть активные бронирования"},
+                status=status.HTTP_400_BAD_REQUEST
             )
 
-    def patch(self, request, book_id):
-        """Частичное обновление книги"""
-        try:
-            self.check_admin_permissions(request)
+        self.perform_destroy(instance)
 
-            try:
-                book = BooksCatalog.objects.get(pk=book_id)
-            except BooksCatalog.DoesNotExist:
-                return Response(
-                    {"detail": "Книга не найдена"},
-                    status=status.HTTP_404_NOT_FOUND
-                )
+        # Очищаем кеш
+        keys = cache.keys('books_*')  # Redis поддерживает keys()
+        if keys:
+            cache.delete_many(keys)
+        cache.delete('popular_books_top10')
+        cache.delete(f'book_{instance.id}')
 
-            serializer = BookDetailSerializer(book, data=request.data, partial=True)
-            if not serializer.is_valid():
-                return Response(
-                    {"detail": "Ошибка валидации", "errors": serializer.errors},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
-            serializer.save()
+class AuthorListView(AdminPermissionMixin, generics.ListAPIView):
+    """
+    Список всех авторов для выбора при создании/редактировании книги
+    """
+    queryset = AuthorsCatalog.objects.all()
+    serializer_class = AuthorShortSerializer
+    pagination_class = None
 
-            # Очищаем кеш
-            cache.delete_many(keys=cache.keys('books_*'))
-            cache.delete('popular_books_top10')
-            cache.delete(f'book_{book_id}')
+class GenreListView(AdminPermissionMixin, generics.ListAPIView):
+    """
+    Список всех жанров для выбора при создании/редактировании книги
+    """
+    queryset = GenresCatalog.objects.all()
+    serializer_class = GenreSerializer
+    pagination_class = None
 
-            return Response(serializer.data)
+class AuthorAdminView(AdminPermissionMixin, generics.ListCreateAPIView):
+    """
+    Управление авторами (список и создание)
+    """
+    queryset = AuthorsCatalog.objects.all()
+    serializer_class = AuthorShortSerializer
+    pagination_class = None
 
-        except PermissionDenied as e:
+    def perform_create(self, serializer):
+        serializer.save()
+        # Очищаем кеш книг, так как мог измениться список авторов
+        keys = cache.keys('books_*')  # Redis поддерживает keys()
+        if keys:
+            cache.delete_many(keys)
+        cache.delete('popular_books_top10')
+
+class AuthorAdminDetailView(AdminPermissionMixin, generics.RetrieveUpdateDestroyAPIView):
+    """
+    Детальное управление автором
+    """
+    queryset = AuthorsCatalog.objects.all()
+    serializer_class = AuthorShortSerializer
+    lookup_field = 'id'
+
+    def perform_update(self, serializer):
+        serializer.save()
+        # Очищаем кеш книг, так как мог измениться автор
+        keys = cache.keys('books_*')  # Redis поддерживает keys()
+        if keys:
+            cache.delete_many(keys)
+        cache.delete('popular_books_top10')
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        # Проверяем, не связан ли автор с книгами
+        if AuthorsBooks.objects.filter(author=instance).exists():
             return Response(
-                {"detail": str(e)},
-                status=status.HTTP_403_FORBIDDEN
+                {"detail": "Невозможно удалить автора, так как есть связанные книги"},
+                status=status.HTTP_400_BAD_REQUEST
             )
-        except Exception as e:
-            logger.error(f"Ошибка при частичном обновлении книги: {str(e)}")
+        self.perform_destroy(instance)
+        # Очищаем кеш книг
+        keys = cache.keys('books_*')  # Redis поддерживает keys()
+        if keys:
+            cache.delete_many(keys)
+        cache.delete('popular_books_top10')
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+class GenreAdminView(AdminPermissionMixin, generics.ListCreateAPIView):
+    """
+    Управление жанрами (список и создание)
+    """
+    queryset = GenresCatalog.objects.all()
+    serializer_class = GenreSerializer
+    pagination_class = None
+
+    def perform_create(self, serializer):
+        serializer.save()
+        # Очищаем кеш книг, так как мог измениться список жанров
+        keys = cache.keys('books_*')  # Redis поддерживает keys()
+        if keys:
+            cache.delete_many(keys)
+        cache.delete('popular_books_top10')
+
+class GenreAdminDetailView(AdminPermissionMixin, generics.RetrieveUpdateDestroyAPIView):
+    """
+    Детальное управление жанром
+    """
+    queryset = GenresCatalog.objects.all()
+    serializer_class = GenreSerializer
+    lookup_field = 'id'
+
+    def perform_update(self, serializer):
+        serializer.save()
+        # Очищаем кеш книг, так как мог измениться жанр
+        keys = cache.keys('books_*')  # Redis поддерживает keys()
+        if keys:
+            cache.delete_many(keys)
+        cache.delete('popular_books_top10')
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        # Проверяем, не связан ли жанр с книгами
+        if instance.books.exists():
             return Response(
-                {"detail": "Ошибка сервера при обновлении книги"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"detail": "Невозможно удалить жанр, так как есть связанные книги"},
+                status=status.HTTP_400_BAD_REQUEST
             )
-
-    def delete(self, request, book_id):
-        """Удаление книги"""
-        try:
-            self.check_admin_permissions(request)
-
-            try:
-                book = BooksCatalog.objects.get(pk=book_id)
-            except BooksCatalog.DoesNotExist:
-                return Response(
-                    {"detail": "Книга не найдена"},
-                    status=status.HTTP_404_NOT_FOUND
-                )
-
-            # Проверяем, нет ли активных бронирований для этой книги
-            active_bookings = BookingCatalog.objects.filter(
-                index=book,
-                issued=True,
-                returned=False
-            ).exists()
-
-            if active_bookings:
-                return Response(
-                    {"detail": "Невозможно удалить книгу, так как есть активные бронирования"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            book.delete()
-
-            # Очищаем кеш
-            cache.delete_many(keys=cache.keys('books_*'))
-            cache.delete('popular_books_top10')
-            cache.delete(f'book_{book_id}')
-
-            return Response(status=status.HTTP_204_NO_CONTENT)
-
-        except PermissionDenied as e:
-            return Response(
-                {"detail": str(e)},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        except Exception as e:
-            logger.error(f"Ошибка при удалении книги: {str(e)}")
-            return Response(
-                {"detail": "Ошибка сервера при удалении книги"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        self.perform_destroy(instance)
+        # Очищаем кеш книг
+        cache.delete_many(keys=cache.keys('books_*'))
+        return Response(status=status.HTTP_204_NO_CONTENT)

@@ -2,12 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import apiClient from '../../api/client';
 
-const Authors_adm = () => {
-    const [authors, setAuthors] = useState([]);
+const Genres_adm = () => {
+    const [genres, setGenres] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
-    const [searchBy, setSearchBy] = useState('surname');
     const [pagination, setPagination] = useState({
         page: 1,
         pageSize: 12,
@@ -15,7 +14,7 @@ const Authors_adm = () => {
     });
     const [offlineMode, setOfflineMode] = useState(false);
 
-    const fetchAuthors = async (page = 1, search = '', searchField = 'surname') => {
+    const fetchGenres = async (page = 1, search = '') => {
         setLoading(true);
         setError('');
         try {
@@ -25,17 +24,11 @@ const Authors_adm = () => {
             };
 
             if (search) {
-                if (searchField === 'name') {
-                    params['author_name'] = search;
-                } else if (searchField === 'full_name') {
-                    params['search'] = search;
-                } else {
-                    params['author_surname'] = search;
-                }
+                params['search'] = search;
             }
 
-            const response = await apiClient.get('/admin/authors-list/', { params });
-            setAuthors(response.data.results || response.data);
+            const response = await apiClient.get('/admin/genres-list/', { params });
+            setGenres(response.data.results || response.data);
             setPagination({
                 ...pagination,
                 page,
@@ -47,7 +40,7 @@ const Authors_adm = () => {
                 setOfflineMode(true);
                 setError('Сервер недоступен. Работаем в автономном режиме.');
             } else {
-                setError('Произошла ошибка при загрузке авторов');
+                setError('Произошла ошибка при загрузке жанров');
             }
             console.error('Ошибка:', err);
         } finally {
@@ -56,59 +49,42 @@ const Authors_adm = () => {
     };
 
     const handleSearchSubmit = () => {
-        fetchAuthors(1, searchTerm, searchBy);
+        fetchGenres(1, searchTerm);
     };
 
     const handlePageChange = (newPage) => {
-        fetchAuthors(newPage, searchTerm, searchBy);
+        fetchGenres(newPage, searchTerm);
     };
 
-    const handleDelete = async (authorId) => {
-        if (window.confirm('Вы уверены, что хотите удалить этого автора?')) {
+    const handleDelete = async (genreId) => {
+        if (window.confirm('Вы уверены, что хотите удалить этот жанр?')) {
             try {
-                await apiClient.delete(`/admin/authors/${authorId}/`);
-                fetchAuthors(pagination.page, searchTerm, searchBy);
+                await apiClient.delete(`/admin/genres/${genreId}/`);
+                fetchGenres(pagination.page, searchTerm);
             } catch (err) {
-                setError('Ошибка при удалении автора');
+                setError('Ошибка при удалении жанра');
                 console.error('Ошибка:', err);
             }
         }
     };
 
     useEffect(() => {
-        fetchAuthors();
+        fetchGenres();
     }, []);
 
-    if (loading && authors.length === 0) {
+    if (loading && genres.length === 0) {
         return <div className="main_order_container">Загрузка...</div>;
     }
 
     return (
         <div className="main_order_container">
-            <h1 className="admin-title">Управление авторами</h1>
+            <h1 className="admin-title">Управление жанрами</h1>
 
             {/* Поисковая форма */}
             <div className="search-controls">
-                <select
-                    value={searchBy}
-                    onChange={(e) => {
-                        setSearchBy(e.target.value);
-                        setPagination(prev => ({ ...prev, page: 1 }));
-                    }}
-                    className="search-select"
-                >
-                    <option value="surname">По фамилии</option>
-                    <option value="name">По имени</option>
-                    <option value="full_name">По полному имени</option>
-                </select>
-
                 <input
                     type="text"
-                    placeholder={
-                        searchBy === 'full_name'
-                            ? 'Введите ФИО автора'
-                            : `Поиск по ${searchBy === 'surname' ? 'фамилии' : 'имени'}`
-                    }
+                    placeholder="Поиск по названию жанра"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleSearchSubmit()}
@@ -125,8 +101,8 @@ const Authors_adm = () => {
 
             {error && <div className="error-message">{error}</div>}
 
-            <Link to="/new_author" className="add-book-button">
-                Добавить нового автора
+            <Link to="/new_genres" className="add-book-button">
+                Добавить новый жанр
             </Link>
 
             {/* Пагинация сверху */}
@@ -148,22 +124,22 @@ const Authors_adm = () => {
                 </div>
             )}
 
-            {/* Список авторов */}
-            {authors.length > 0 ? (
+            {/* Список жанров */}
+            {genres.length > 0 ? (
                 <div className="books-grid">
-                    {authors.map((author) => (
-                        <div key={author.id} className="book-card">
+                    {genres.map((genre) => (
+                        <div key={genre.id} className="book-card">
                             <div className="book-info">
-                                <h3>{author.author_surname} {author.author_name} {author.author_patronymic || ''}</h3>
+                                <h3>{genre.name}</h3>
                                 <div className="admin-actions">
                                     <Link
-                                        to={`/new_author/${author.id}`}
+                                        to={`/new_genres/${genre.id}`}
                                         className="edit-button"
                                     >
                                         Редактировать
                                     </Link>
                                     <button
-                                        onClick={() => handleDelete(author.id)}
+                                        onClick={() => handleDelete(genre.id)}
                                         className="delete-button"
                                     >
                                         Удалить
@@ -174,7 +150,7 @@ const Authors_adm = () => {
                     ))}
                 </div>
             ) : (
-                <p className="no-books">Авторы не найдены</p>
+                <p className="no-books">Жанры не найдены</p>
             )}
 
             {/* Пагинация снизу */}
@@ -199,4 +175,4 @@ const Authors_adm = () => {
     );
 };
 
-export default Authors_adm;
+export default Genres_adm;
