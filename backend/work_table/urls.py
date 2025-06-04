@@ -6,10 +6,10 @@ from .views import (
     CommentListCreateView, CommentDetailView, UserBookingsListView,
     BookingDetailView, BookingListCreateView, UserBookingsView,
     ProfileUpdateView, OrderListView, StatisticsView,
-    BookAdminListView, BookAdminDetailView,
-    AuthorListView, GenreListView,
-    AuthorAdminView, AuthorAdminDetailView,
-    GenreAdminView, GenreAdminDetailView
+    BookAdminListView, BookAdminDetailView, BookingAdminDetailView,
+    AuthorListView, GenreListView, BookingAdminView,
+    AuthorAdminView, AuthorAdminDetailView, AdminOrderDetailView,
+    GenreAdminView, GenreAdminDetailView, AdminOrderListView
 )
 
 urlpatterns = [
@@ -36,10 +36,14 @@ urlpatterns = [
     path('bookings/<int:pk>/', BookingDetailView.as_view(), name='booking-detail'),
     path('users/<int:user_id>/bookings/', UserBookingsListView.as_view(), name='user-bookings-list'),
     path('bookings/my/', UserBookingsView.as_view(), name='user-bookings-my'),
+    path('admin/bookings/', BookingAdminView.as_view(), name='admin-bookings-list'),
+    path('admin/bookings/<int:pk>/', BookingAdminDetailView.as_view(), name='admin-bookings-detail'),
 
     # Заказы
     path('orders/', OrderListView.as_view(), name='order-list'),
     path('orders/<int:id>/', OrderListView.as_view(), name='order-detail'),
+    path('admin/orders/', AdminOrderListView.as_view(), name='admin-order-list'),
+    path('admin/orders/<int:order_id>/', AdminOrderDetailView.as_view(), name='admin-order-detail'),
 
     # Статистика
     path('statistics/', StatisticsView.as_view(), name='statistics'),

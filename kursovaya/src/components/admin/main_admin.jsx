@@ -61,6 +61,7 @@ const Main_adm = () => {
           <li><Link to="/users_admin" className="admin-link">Каталог пользователей</Link></li>
           <li><Link to="/reports_admin" className="admin-link">Создать отчёт</Link></li>
           <li><Link to="/comments_admin" className="admin-link">Редактировать комментарии</Link></li>
+          <li><Link to="/profile" className="admin-link">Профиль</Link></li>
         </ul>
       </div>
 

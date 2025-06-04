@@ -242,6 +242,14 @@ function App() {
                                 </ProtectedRoute>
                             }
                         />
+                        <Route
+                            path="/profile"
+                            element={
+                                <ProtectedRoute requireAdmin={true}>
+                                    <Prof />
+                                </ProtectedRoute>
+                            }
+                        />
 
                         <Route path="*" element={<Error />} />
                     </Routes>

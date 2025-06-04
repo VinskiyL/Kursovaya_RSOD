@@ -30,8 +30,8 @@ class BookingSerializer(serializers.ModelSerializer):
             'quantity': {'required': True},
             'date_issue': {'required': True},
             'date_return': {'required': True},
-            'issued': {'read_only': True},  # Запрещаем прямое изменение
-            'returned': {'read_only': True}  # через API
+            'issued': {'required': False},  # Разрешаем изменение через API
+            'returned': {'required': False}  # Разрешаем изменение через API
         }
 
     def get_reader_name(self, obj):
@@ -290,14 +290,17 @@ class ReadersCatalogSerializer(serializers.ModelSerializer):
         validated_data['password'] = make_password(validated_data.get('password'))
         return super().create(validated_data)
 
+
 class OrderSerializer(serializers.ModelSerializer):
+    reader_name = serializers.SerializerMethodField()
+
     class Meta:
         model = OrderCatalog
         fields = [
             'id', 'title', 'author_surname', 'author_name', 'author_patronymic',
-            'quantyti', 'reader', 'date_publication', 'confirmed'
+            'quantyti', 'reader', 'reader_name', 'date_publication', 'confirmed'
         ]
-        read_only_fields = ['reader', 'confirmed']
+        read_only_fields = ['reader', 'reader_name']
         extra_kwargs = {
             'quantyti': {
                 'min_value': 1,
@@ -307,14 +310,18 @@ class OrderSerializer(serializers.ModelSerializer):
             'author_surname': {'required': True}
         }
 
-    def validate_quantyti(self, value):
-        if value < 1:
-            raise serializers.ValidationError("Количество не может быть меньше 1")
-        if value > 5:
-            raise serializers.ValidationError("Нельзя заказать больше 5 экземпляров")
-        return value
+    def get_reader_name(self, obj):
+        return f"{obj.reader.surname} {obj.reader.name}"
 
     def validate(self, data):
+        # Проверяем, может ли текущий пользователь изменять confirmed
+        request = self.context.get('request')
+        if request and request.user and not request.user.admin:
+            if 'confirmed' in data and data['confirmed'] != self.instance.confirmed:
+                raise serializers.ValidationError({
+                    'confirmed': 'Только администратор может изменять этот статус'
+                })
+
         if 'author_patronymic' in data and data['author_patronymic'] == '':
             data['author_patronymic'] = None
 

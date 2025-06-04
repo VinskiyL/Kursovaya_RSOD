@@ -511,7 +511,7 @@ class BookingListCreateView(APIView):
     """
     Список бронирований и создание нового бронирования с проверкой токена в куки
     """
-
+    pagination_class = BookPagination
     def get(self, request):
         access_token = request.COOKIES.get('access_token')
         if not access_token:
@@ -923,6 +923,7 @@ class BookAdminListView(AdminPermissionMixin, generics.ListCreateAPIView):
     """
     Административный список книг (с возможностью создания)
     """
+    pagination_class = BookPagination
     queryset = BooksCatalog.objects.all().prefetch_related(
         Prefetch('authorsbooks_set', queryset=AuthorsBooks.objects.select_related('author')),
         'genres'
@@ -1004,7 +1005,7 @@ class AuthorListView(AdminPermissionMixin, generics.ListAPIView):
     """
     queryset = AuthorsCatalog.objects.all()
     serializer_class = AuthorShortSerializer
-    pagination_class = None
+    pagination_class = BookPagination
 
 class GenreListView(AdminPermissionMixin, generics.ListAPIView):
     """
@@ -1012,7 +1013,7 @@ class GenreListView(AdminPermissionMixin, generics.ListAPIView):
     """
     queryset = GenresCatalog.objects.all()
     serializer_class = GenreSerializer
-    pagination_class = None
+    pagination_class = BookPagination
 
 class AuthorAdminView(AdminPermissionMixin, generics.ListCreateAPIView):
     """
@@ -1020,7 +1021,7 @@ class AuthorAdminView(AdminPermissionMixin, generics.ListCreateAPIView):
     """
     queryset = AuthorsCatalog.objects.all()
     serializer_class = AuthorShortSerializer
-    pagination_class = None
+    pagination_class = BookPagination
 
     def perform_create(self, serializer):
         serializer.save()
@@ -1068,7 +1069,7 @@ class GenreAdminView(AdminPermissionMixin, generics.ListCreateAPIView):
     """
     queryset = GenresCatalog.objects.all()
     serializer_class = GenreSerializer
-    pagination_class = None
+    pagination_class = BookPagination
 
     def perform_create(self, serializer):
         serializer.save()
@@ -1106,3 +1107,240 @@ class GenreAdminDetailView(AdminPermissionMixin, generics.RetrieveUpdateDestroyA
         # Очищаем кеш книг
         cache.delete_many(keys=cache.keys('books_*'))
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class BookingAdminView(APIView):
+    pagination_class = BookPagination
+    def get_user_from_token(self, request):
+        """Получаем пользователя из access_token в куках"""
+        access_token = request.COOKIES.get('access_token')
+        if not access_token:
+            return None
+
+        try:
+            token = AccessToken(access_token)
+            user = ReadersCatalog.objects.get(id=token['user_id'])
+            return user
+        except Exception as e:
+            logger.error(f"Ошибка получения пользователя из токена: {e}")
+            return None
+
+    def get(self, request):
+        # Проверка прав администратора
+        user = self.get_user_from_token(request)
+        if not user or not user.admin:
+            return Response(
+                {"detail": "Требуются права администратора"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        booking_id = request.query_params.get('id', '')
+        queryset = BookingCatalog.objects.all().select_related('index', 'reader')
+
+        if booking_id:
+            queryset = queryset.filter(id=booking_id)
+
+        serializer = BookingSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+
+class BookingAdminDetailView(APIView):
+    def get_user_from_token(self, request):
+        """Получаем пользователя из access_token в куках"""
+        access_token = request.COOKIES.get('access_token')
+        if not access_token:
+            return None
+
+        try:
+            token = AccessToken(access_token)
+            user = ReadersCatalog.objects.get(id=token['user_id'])
+            return user
+        except Exception as e:
+            logger.error(f"Ошибка получения пользователя из токена: {e}")
+            return None
+
+    def get_booking(self, pk):
+        try:
+            return BookingCatalog.objects.get(pk=pk)
+        except BookingCatalog.DoesNotExist:
+            return None
+
+    def get(self, request, pk):
+        # Проверка прав администратора
+        user = self.get_user_from_token(request)
+        if not user or not user.admin:
+            return Response(
+                {"detail": "Требуются права администратора"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        booking = self.get_booking(pk)
+        if not booking:
+            return Response(
+                {"detail": "Бронирование не найдено"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = BookingSerializer(booking)
+        return Response(serializer.data)
+
+    def patch(self, request, pk):
+        # Проверка прав администратора
+        user = self.get_user_from_token(request)
+        if not user or not user.admin:
+            return Response(
+                {"detail": "Требуются права администратора"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        booking = self.get_booking(pk)
+        if not booking:
+            return Response(
+                {"detail": "Бронирование не найдено"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = BookingSerializer(booking, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response(
+                {"detail": "Ошибка валидации", "errors": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Проверка перед установкой returned=True
+        if 'returned' in serializer.validated_data and serializer.validated_data['returned']:
+            if not booking.issued:
+                return Response(
+                    {"detail": "Невозможно вернуть невыданную книгу"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        try:
+            serializer.save()
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error(f"Ошибка обновления бронирования: {str(e)}")
+            return Response(
+                {"detail": "Ошибка при обновлении бронирования"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class AdminOrderListView(APIView):
+    pagination_class = BookPagination
+    def get_user_from_token(self, request):
+        """Получаем пользователя из access_token в куках"""
+        access_token = request.COOKIES.get('access_token')
+        if not access_token:
+            return None
+
+        try:
+            token = AccessToken(access_token)
+            user = ReadersCatalog.objects.get(id=token['user_id'])
+            return user
+        except Exception as e:
+            logger.error(f"Ошибка получения пользователя из токена: {e}")
+            return None
+
+    def get(self, request):
+        """Получение списка всех заказов"""
+        # Проверяем права администратора
+        user = self.get_user_from_token(request)
+        if not user or not user.admin:
+            return Response(
+                {"detail": "Требуются права администратора"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Получаем все заказы
+        orders = OrderCatalog.objects.all().order_by('-id')
+        serializer = OrderSerializer(orders, many=True)
+
+        return Response(
+            {
+                "success": True,
+                "orders": serializer.data
+            },
+            status=status.HTTP_200_OK
+        )
+
+
+class AdminOrderDetailView(APIView):
+    pagination_class = BookPagination
+
+    def get_user_from_token(self, request):
+        """Получаем пользователя из access_token в куках"""
+        access_token = request.COOKIES.get('access_token')
+        if not access_token:
+            return None
+
+        try:
+            token = AccessToken(access_token)
+            user = ReadersCatalog.objects.get(id=token['user_id'])
+            return user
+        except Exception as e:
+            logger.error(f"Ошибка получения пользователя из токена: {e}")
+            return None
+
+    def get_order(self, order_id):
+        try:
+            return OrderCatalog.objects.get(id=order_id)
+        except OrderCatalog.DoesNotExist:
+            return None
+
+    def get(self, request, order_id):
+        """Получение информации о конкретном заказе"""
+        # Проверяем права администратора
+        user = self.get_user_from_token(request)
+        if not user or not user.admin:
+            return Response(
+                {"detail": "Требуются права администратора"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        order = self.get_order(order_id)
+        if not order:
+            return Response(
+                {"detail": "Заказ не найден"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = OrderSerializer(order)
+        return Response(serializer.data)
+
+    def patch(self, request, order_id):
+        """Изменение статуса подтверждения заказа"""
+        # Проверяем права администратора
+        user = self.get_user_from_token(request)
+        if not user or not user.admin:
+            return Response(
+                {"detail": "Требуются права администратора"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        order = self.get_order(order_id)
+        if not order:
+            return Response(
+                {"detail": "Заказ не найден"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Проверяем, что передано поле confirmed
+        if 'confirmed' not in request.data:
+            return Response(
+                {"detail": "Поле 'confirmed' обязательно"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Обновляем статус заказа
+        order.confirmed = request.data['confirmed']
+        try:
+            order.save()
+            serializer = OrderSerializer(order)
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error(f"Ошибка обновления заказа {order_id}: {str(e)}")
+            return Response(
+                {"detail": "Ошибка при обновлении заказа"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

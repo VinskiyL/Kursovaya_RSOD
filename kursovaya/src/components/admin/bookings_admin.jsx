@@ -1,93 +1,218 @@
-import axios from 'axios';
-import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import '../store/order.css';
+import React, { useEffect, useState, useMemo } from 'react';
+import apiClient from '../../api/client';
+import "./booking.css";
 
-function Bookings_adm() {
-    //TODO переделать запрос брони
-    const [query, setQuery] = useState('bc.index,title,information_publication,quantity,date_issue,date_return,b.id kursovaya."Books_catalog"');
-    const [results, setResults] = useState([]);
+const Bookings_adm = () => {
+    const [allBookings, setAllBookings] = useState([]);
+    const [bookings, setBookings] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [searchTerm, setSearchTerm] = useState(''); // Состояние для поиска
+    const [searchTerm, setSearchTerm] = useState('');
+    const [searchBy, setSearchBy] = useState('id');
+    const [pagination, setPagination] = useState({
+        page: 1,
+        pageSize: 12,
+        total: 0
+    });
 
-    const fetchData = async () => {
+    const fetchBookings = async () => {
+        setLoading(true);
         setError('');
         try {
-            const response = await axios.get(`https://kursovaya.local/booking.php`, {
-                params: { query },
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                withCredentials: true,
-            });
-            setResults(response.data.data || []);
+            const response = await apiClient.get('/admin/bookings/');
+            setAllBookings(response.data.results || response.data);
+            setPagination(prev => ({
+                ...prev,
+                total: response.data.count || response.data.length
+            }));
         } catch (err) {
-            setError('Произошла ошибка при поиске.');
-            console.error('Ошибка при выполнении запроса:', err.response ? err.response.data : err.message);
+            setError('Произошла ошибка при загрузке бронирований');
+            console.error('Ошибка:', err);
+        } finally {
+            setLoading(false);
         }
     };
 
-    const handleBooking = async (index) => {
-        try {
-            const response = await axios.get(`https://kursovaya.local/deleteBooking.php`, {
-                params: { index }, withCredentials: true,
-            });
+    // Фильтрация бронирований на фронтенде
+    const filteredBookings = useMemo(() => {
+        if (!searchTerm) return allBookings;
 
-            const result = response.data;
-            if (result.success) {
-                alert('Бронирование успешно отменено!');
-                fetchData();
-            } else {
-                alert('Не удалось отменить бронирование. Попробуйте снова.');
+        const term = searchTerm.toLowerCase();
+        return allBookings.filter(booking => {
+            if (searchBy === 'id') {
+                return booking.id.toString().includes(term);
+            } else if (searchBy === 'reader') {
+                return booking.reader_name.toLowerCase().includes(term);
+            } else if (searchBy === 'book') {
+                return booking.book_title.toLowerCase().includes(term);
             }
-        } catch (error) {
-            console.error('Ошибка:', error);
-            alert('Произошла ошибка. Попробуйте позже.');
+            return true;
+        });
+    }, [allBookings, searchTerm, searchBy]);
+
+    // Пагинация
+    const paginatedBookings = useMemo(() => {
+        const start = (pagination.page - 1) * pagination.pageSize;
+        return filteredBookings.slice(start, start + pagination.pageSize);
+    }, [filteredBookings, pagination.page, pagination.pageSize]);
+
+    const handleSearchSubmit = () => {
+        setPagination(prev => ({ ...prev, page: 1 }));
+    };
+
+    const handlePageChange = (newPage) => {
+        setPagination(prev => ({ ...prev, page: newPage }));
+    };
+
+    const handleStatusChange = async (bookingId, field) => {
+        try {
+            await apiClient.patch(`/admin/bookings/${bookingId}/`, {
+                [field]: true
+            });
+            fetchBookings(); // Обновляем данные после изменения
+        } catch (err) {
+            setError('Ошибка при изменении статуса бронирования');
+            console.error('Ошибка:', err);
         }
     };
 
     useEffect(() => {
+        fetchBookings();
+    }, []);
 
-        fetchData();
-    }, [query]); // Добавляем query в зависимости, чтобы перезапрашивать данные при изменении
+    useEffect(() => {
+        setPagination(prev => ({
+            ...prev,
+            total: filteredBookings.length
+        }));
+    }, [filteredBookings]);
 
-    // Функция для обработки ввода в поле поиска
-    const handleSearchChange = (event) => {
-        setSearchTerm(event.target.value);
-    };
-
-    // Фильтрация результатов на основе searchTerm
-    const filteredResults = results.filter(book =>
-        book.title.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    if (loading && allBookings.length === 0) {
+        return <div className="main_order_container">Загрузка...</div>;
+    }
 
     return (
-        <div className = "main_order_container">
-            <input
-                type="text"
-                placeholder="Поиск по названию книги..."
-                value={searchTerm}
-                onChange={handleSearchChange}
-            />
-            {filteredResults.length > 0 ? (
-                filteredResults.map((book) => {
-                    return (
-                        <div key={book.id} className = "result_">
-                            <h3 className = "h_result">Номер брони: {book.id}</h3>
-                            <p className = "h_result">Название книги: {book.title}</p>
-                            <p className = "h_result">Информация об издании: {book.information_publication}</p>
-                            <p className = "h_result">Количество книг: {book.quantity}</p>
-                            <p className = "h_result">Дата бронирования: {book.date_issue}</p>
-                            <p className = "h_result">Дата возврата: {book.date_return}</p>
-                            <button onClick={() => handleBooking(book.index)} className = "main_order-button">Отменить бронирование</button>
+        <div className="main_order_container">
+            <h1 className="admin-title">Управление бронированиями</h1>
+
+            {/* Поисковая форма */}
+            <div className="search-controls">
+                <select
+                    value={searchBy}
+                    onChange={(e) => setSearchBy(e.target.value)}
+                    className="search-select"
+                >
+                    <option value="id">По ID</option>
+                    <option value="reader">По фамилии читателя</option>
+                    <option value="book">По названию книги</option>
+                </select>
+
+                <input
+                    type="text"
+                    placeholder={
+                        searchBy === 'id'
+                            ? 'Введите ID бронирования'
+                            : searchBy === 'reader'
+                                ? 'Введите фамилию читателя'
+                                : 'Введите название книги'
+                    }
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSearchSubmit()}
+                    className="search-input"
+                />
+
+                <button
+                    onClick={handleSearchSubmit}
+                    className="search-button"
+                >
+                    Найти
+                </button>
+            </div>
+
+            {error && <div className="error-message">{error}</div>}
+
+            {/* Пагинация сверху */}
+            {pagination.total > pagination.pageSize && (
+                <div className="pagination">
+                    {Array.from(
+                        { length: Math.ceil(pagination.total / pagination.pageSize) },
+                        (_, i) => i + 1
+                    ).map(page => (
+                        <button
+                            key={page}
+                            onClick={() => handlePageChange(page)}
+                            disabled={page === pagination.page}
+                            className={page === pagination.page ? 'active' : ''}
+                        >
+                            {page}
+                        </button>
+                    ))}
+                </div>
+            )}
+
+            {/* Список бронирований */}
+            {paginatedBookings.length > 0 ? (
+                <div className="books-grid">
+                    {paginatedBookings.map((booking) => (
+                        <div key={booking.id} className="book-card">
+                            <div className="book-info">
+                                <h3>ID:{booking.id}</h3>
+                                <p><strong>Книга:</strong> {booking.book_title}</p>
+                                <p><strong>Читатель:</strong> {booking.reader_name}</p>
+                                <p><strong>Количество:</strong> {booking.quantity}</p>
+                                <p><strong>Дата выдачи:</strong> {new Date(booking.date_issue).toLocaleDateString()}</p>
+                                <p><strong>Дата возврата:</strong> {new Date(booking.date_return).toLocaleDateString()}</p>
+
+                                <div className="status-controls">
+                                    {!booking.issued && (
+                                        <button
+                                            className="status-button issue-button"
+                                            onClick={() => handleStatusChange(booking.id, 'issued')}
+                                        >
+                                            Отметить как выданное
+                                        </button>
+                                    )}
+
+                                    {booking.issued && !booking.returned && (
+                                        <button
+                                            className="status-button return-button"
+                                            onClick={() => handleStatusChange(booking.id, 'returned')}
+                                        >
+                                            Отметить как возвращенное
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
                         </div>
-                    );
-                })
+                    ))}
+                </div>
             ) : (
-                <p className = "h_result">Брони не найдены.</p>
+                <p className="no-books">
+                    {allBookings.length === 0 ? 'Нет данных о бронированиях' : 'Бронирования не найдены'}
+                </p>
+            )}
+
+            {/* Пагинация снизу */}
+            {pagination.total > pagination.pageSize && (
+                <div className="pagination">
+                    {Array.from(
+                        { length: Math.ceil(pagination.total / pagination.pageSize) },
+                        (_, i) => i + 1
+                    ).map(page => (
+                        <button
+                            key={page}
+                            onClick={() => handlePageChange(page)}
+                            disabled={page === pagination.page}
+                            className={page === pagination.page ? 'active' : ''}
+                        >
+                            {page}
+                        </button>
+                    ))}
+                </div>
             )}
         </div>
     );
-}
+};
 
 export default Bookings_adm;
