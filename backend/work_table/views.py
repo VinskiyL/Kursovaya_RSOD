@@ -16,9 +16,11 @@ from rest_framework import filters
 from .serializers import (
     BookListSerializer, BookDetailSerializer, PopularBookSerializer,
     BookingSerializer, BookingCreateSerializer, StatisticsSerializer,
-    AuthorShortSerializer, GenreSerializer, BookCreateSerializer
+    AuthorShortSerializer, GenreSerializer, BookCreateSerializer,
+    ReaderEmailSerializer, ReaderListSerializer, ReaderDetailSerializer,
+    ReaderAdminUpdateSerializer
 )
-from .filters import BookFilter
+from .filters import BookFilter, DebtorFilter
 from django.core.cache import cache
 from django.db.models import Prefetch
 from .models import AuthorsBooks, BookingCatalog, BooksCatalog, GenresCatalog
@@ -1344,3 +1346,44 @@ class AdminOrderDetailView(APIView):
                 {"detail": "Ошибка при обновлении заказа"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class SendReaderEmailView(AdminPermissionMixin, APIView):
+    def post(self, request, reader_id):
+        try:
+            reader = ReadersCatalog.objects.get(pk=reader_id)
+        except ReadersCatalog.DoesNotExist:
+            return Response({"error": "Reader not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = ReaderEmailSerializer(reader, data=request.data)
+        if serializer.is_valid():
+            serializer.send_email()
+            return Response({"message": f"Email sent to {reader.mail}"}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ReaderListView(AdminPermissionMixin, generics.ListAPIView):
+    queryset = ReadersCatalog.objects.all()
+    serializer_class = ReaderListSerializer
+    pagination_class = BookPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = DebtorFilter
+
+class ReaderDetailView(AdminPermissionMixin, generics.RetrieveAPIView):
+    queryset = ReadersCatalog.objects.all()
+    serializer_class = ReaderDetailSerializer
+    lookup_field = 'id'
+
+class ReaderAdminUpdateView(AdminPermissionMixin, generics.UpdateAPIView):
+    queryset = ReadersCatalog.objects.all()
+    serializer_class = ReaderAdminUpdateSerializer
+    lookup_field = 'id'
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if 'admin' in request.data and instance.id == request.user.id and not request.data['admin']:
+            return Response(
+                {"detail": "Вы не можете снять с себя права администратора"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        return super().update(request, *args, **kwargs)

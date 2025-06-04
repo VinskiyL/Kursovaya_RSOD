@@ -23,10 +23,10 @@ import Authors_adm from './components/admin/authors_admin';
 import Genres_adm from './components/admin/genres_admin';
 import Books_adm from './components/admin/books_admin';
 import Bookings_adm from './components/admin/bookings_admin';
-import Comments_adm from './components/admin/comments_admin';
 import Orders_adm from './components/admin/orders_admin';
 import Reports_adm from './components/admin/reports_admin';
 import Users_adm from './components/admin/users_admin';
+import User_detail from './components/admin/users_detail';
 import New_book from './components/admin/new_book';
 import New_author from './components/admin/new_author';
 import New_genres from './components/admin/new_genres';
@@ -163,14 +163,6 @@ function App() {
                             }
                         />
                         <Route
-                            path="/comments_admin"
-                            element={
-                                <ProtectedRoute requireAdmin={true}>
-                                    <Comments_adm />
-                                </ProtectedRoute>
-                            }
-                        />
-                        <Route
                             path="/orders_admin"
                             element={
                                 <ProtectedRoute requireAdmin={true}>
@@ -191,6 +183,14 @@ function App() {
                             element={
                                 <ProtectedRoute requireAdmin={true}>
                                     <Users_adm />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/users_detail/:id"
+                            element={
+                                <ProtectedRoute requireAdmin={true}>
+                                    <User_detail />
                                 </ProtectedRoute>
                             }
                         />

@@ -9,7 +9,9 @@ from .views import (
     BookAdminListView, BookAdminDetailView, BookingAdminDetailView,
     AuthorListView, GenreListView, BookingAdminView,
     AuthorAdminView, AuthorAdminDetailView, AdminOrderDetailView,
-    GenreAdminView, GenreAdminDetailView, AdminOrderListView
+    GenreAdminView, GenreAdminDetailView, AdminOrderListView,
+    SendReaderEmailView, ReaderDetailView, ReaderListView,
+    ReaderAdminUpdateView
 )
 
 urlpatterns = [
@@ -62,4 +64,12 @@ urlpatterns = [
     path('admin/genres/', GenreAdminView.as_view(), name='admin-genres-list'),
     path('admin/genres/<int:id>/', GenreAdminDetailView.as_view(), name='admin-genres-detail'),
     path('admin/genres-list/', GenreListView.as_view(), name='admin-genres-select-list'),
+
+    #email
+    path('send-email/<int:reader_id>/', SendReaderEmailView.as_view(), name='send-email'),
+
+    #Юзеры
+    path('readers/', ReaderListView.as_view(), name='reader-list'),
+    path('readers/<int:id>/', ReaderDetailView.as_view(), name='reader-detail'),
+    path('readers/<int:id>/update/', ReaderAdminUpdateView.as_view(), name='reader-admin-update'),
 ]

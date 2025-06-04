@@ -1,5 +1,6 @@
 from django_filters import rest_framework as filters
-from .models import BooksCatalog, OrderCatalog
+from .models import BooksCatalog, OrderCatalog, ReadersCatalog, BookingCatalog
+from django.utils import timezone
 
 class BookFilter(filters.FilterSet):
     author = filters.CharFilter(method='filter_by_author')
@@ -56,3 +57,21 @@ class OrderFilter(filters.FilterSet):
     class Meta:
         model = OrderCatalog
         fields = ['title', 'author', 'date_publication']
+
+class DebtorFilter(filters.FilterSet):
+    is_debtor = filters.BooleanFilter(method='filter_debtors')
+
+    class Meta:
+        model = ReadersCatalog
+        fields = ['is_debtor']
+
+    def filter_debtors(self, queryset, name, value):
+        if value:
+            current_date = timezone.now().date()
+            debtors_ids = BookingCatalog.objects.filter(
+                issued=True,
+                returned=False,
+                date_return__lt=current_date
+            ).values_list('reader_id', flat=True).distinct()
+            return queryset.filter(id__in=debtors_ids)
+        return queryset

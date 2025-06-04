@@ -2,6 +2,9 @@ from .models import ReadersCatalog
 from django.contrib.auth.hashers import make_password, check_password
 from rest_framework.exceptions import ValidationError
 from datetime import date, timedelta
+from django.core.mail import send_mail
+from django.conf import settings
+from django.utils import timezone
 from rest_framework import serializers
 from .models import(
     BooksCatalog, AuthorsCatalog, Comments,
@@ -383,3 +386,77 @@ class BookCreateSerializer(serializers.ModelSerializer):
             book.genres.set(genre_ids)
 
         return book
+
+
+class ReaderEmailSerializer(serializers.ModelSerializer):
+    subject = serializers.CharField(write_only=True, default="Уведомление от библиотеки")
+    message = serializers.CharField(write_only=True, default="Здравствуйте, уважаемый читатель, просим вернуть вас книгу.")
+
+    class Meta:
+        model = ReadersCatalog
+        fields = ['id', 'mail', 'subject', 'message']
+        read_only_fields = ['id', 'mail']
+
+    def send_email(self):
+        user_email = self.instance.mail
+        subject = self.validated_data['subject']
+        message = self.validated_data['message']
+
+        send_mail(
+            subject=subject,
+            message=message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user_email],
+            fail_silently=False,
+        )
+
+
+class ReaderListSerializer(serializers.ModelSerializer):
+    status = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ReadersCatalog
+        fields = ['id', 'surname', 'name', 'patronymic', 'mail', 'phone', 'status']
+
+    def get_status(self, obj):
+        return "Активный" if obj.is_active else "Неактивный"
+
+
+class ReaderDetailSerializer(serializers.ModelSerializer):
+    status = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ReadersCatalog
+        fields = [
+            'id', 'surname', 'name', 'patronymic', 'birthday', 'education', 'profession',
+            'educational_inst', 'city', 'street', 'house', 'building_house', 'flat',
+            'passport_series', 'passport_number', 'issued_by_whom', 'date_issue',
+            'consists_of', 're_registration', 'phone', 'login', 'mail', 'admin', 'status'
+        ]
+        read_only_fields = [
+            'id', 'surname', 'name', 'patronymic', 'birthday', 'education', 'profession',
+            'educational_inst', 'city', 'street', 'house', 'building_house', 'flat',
+            'passport_series', 'passport_number', 'issued_by_whom', 'date_issue',
+            'consists_of', 'phone', 'login', 'mail'
+        ]
+
+    def get_status(self, obj):
+        return "Активный" if obj.is_active else "Неактивный"
+
+    def to_representation(self, instance):
+        """Скрываем пароль и is_active при выводе"""
+        data = super().to_representation(instance)
+        data.pop('password', None)
+        data.pop('is_active', None)
+        return data
+
+
+class ReaderAdminUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ReadersCatalog
+        fields = ['re_registration', 'admin']
+
+    def validate_re_registration(self, value):
+        if value and value < timezone.now().date():
+            raise serializers.ValidationError("Дата перерегистрации не может быть в прошлом")
+        return value
