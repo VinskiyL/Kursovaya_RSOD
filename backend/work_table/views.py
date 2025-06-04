@@ -33,6 +33,14 @@ from .models import OrderCatalog
 from .serializers import OrderSerializer
 from .filters import OrderFilter
 from rest_framework.exceptions import ValidationError
+import pandas as pd
+from io import BytesIO
+from django.http import HttpResponse
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from datetime import timedelta
+from django.db.models import Count, Sum
+from .serializers import ReportPeriodSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -41,15 +49,14 @@ class PopularBooksView(generics.ListAPIView):
     pagination_class = None
 
     def get_queryset(self):
-        cache_key = 'popular_books_top10'
+        cache_key = 'popular_books_top10_issued'
         queryset = cache.get(cache_key)
 
         if not queryset:
             queryset = BooksCatalog.objects.annotate(
                 active_bookings=Count(
                     'bookingcatalog',
-                    filter=Q(bookingcatalog__issued=True) &
-                           Q(bookingcatalog__returned=False)
+                    filter=Q(bookingcatalog__issued=True)  # Только выданные книги
                 )
             ).order_by('-active_bookings')[:10]
             cache.set(cache_key, queryset, timeout=3600)
@@ -1387,3 +1394,142 @@ class ReaderAdminUpdateView(AdminPermissionMixin, generics.UpdateAPIView):
                 status=status.HTTP_403_FORBIDDEN
             )
         return super().update(request, *args, **kwargs)
+
+
+class GenerateReportView(APIView):
+    def get_user_from_token(self, request):
+        """Получаем пользователя из access_token в куках"""
+        access_token = request.COOKIES.get('access_token')
+        if not access_token:
+            return None
+
+        try:
+            token = AccessToken(access_token)
+            user = ReadersCatalog.objects.get(id=token['user_id'])
+            return user
+        except Exception as e:
+            logger.error(f"Ошибка получения пользователя из токена: {e}")
+            return None
+
+    def post(self, request):
+        # Проверка прав администратора
+        user = self.get_user_from_token(request)
+        if not user or not user.admin:
+            return Response(
+                {"detail": "Требуются права администратора"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = ReportPeriodSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        start_date = serializer.validated_data['start_date']
+        end_date = serializer.validated_data['end_date'] + timedelta(days=1)  # Чтобы включить весь день окончания
+
+        # Создаем Excel файл в памяти
+        output = BytesIO()
+        writer = pd.ExcelWriter(output, engine='xlsxwriter')
+
+        # 1. Книги у читателей (issued = True и returned = False)
+        issued_books = BookingCatalog.objects.filter(
+            issued=True,
+            returned=False,
+            date_issue__gte=start_date,
+            date_issue__lt=end_date
+        ).select_related('index', 'reader')
+
+        issued_data = []
+        for booking in issued_books:
+            issued_data.append({
+                'Название книги': booking.index.title,
+                'Автор(ы)': booking.index.get_authors_names(),
+                'Читатель': f"{booking.reader.surname} {booking.reader.name}",
+                'Дата выдачи': booking.date_issue,
+                'Дата возврата': booking.date_return,
+                'Количество': booking.quantity,
+                'Статус': 'На руках'
+            })
+
+        if issued_data:
+            df_issued = pd.DataFrame(issued_data)
+            df_issued.to_excel(writer, sheet_name='Книги у читателей', index=False)
+
+        # 2. Популярные книги (10 самых бронированных)
+        popular_books = BookingCatalog.objects.filter(
+            date_issue__gte=start_date,
+            date_issue__lt=end_date
+        ).values(
+            'index__title',
+            'index__authors_mark'
+        ).annotate(
+            total_bookings=Count('id')
+        ).order_by('-total_bookings')[:10]
+
+        popular_books_data = []
+        for book in popular_books:
+            popular_books_data.append({
+                'Название книги': book['index__title'],
+                'Автор(ы)': book['index__authors_mark'],
+                'Количество бронирований': book['total_bookings']
+            })
+
+        if popular_books_data:
+            df_popular = pd.DataFrame(popular_books_data)
+            df_popular.to_excel(writer, sheet_name='Популярные книги', index=False)
+
+        # 3. Популярные авторы (10 самых бронированных)
+        popular_authors = BookingCatalog.objects.filter(
+            date_issue__gte=start_date,
+            date_issue__lt=end_date
+        ).values(
+            'index__authorsbooks__author__author_surname',
+            'index__authorsbooks__author__author_name'
+        ).annotate(
+            total_bookings=Count('id')
+        ).order_by('-total_bookings')[:10]
+
+        authors_data = []
+        for author in popular_authors:
+            authors_data.append({
+                'Фамилия автора': author['index__authorsbooks__author__author_surname'],
+                'Имя автора': author['index__authorsbooks__author__author_name'],
+                'Количество бронирований': author['total_bookings']
+            })
+
+        if authors_data:
+            df_authors = pd.DataFrame(authors_data)
+            df_authors.to_excel(writer, sheet_name='Популярные авторы', index=False)
+
+        # 4. Популярные жанры (10 самых бронированных)
+        popular_genres = BookingCatalog.objects.filter(
+            date_issue__gte=start_date,
+            date_issue__lt=end_date
+        ).values(
+            'index__booksgenres__genre__name'
+        ).annotate(
+            total_bookings=Count('id')
+        ).order_by('-total_bookings')[:10]
+
+        genres_data = []
+        for genre in popular_genres:
+            genres_data.append({
+                'Жанр': genre['index__booksgenres__genre__name'],
+                'Количество бронирований': genre['total_bookings']
+            })
+
+        if genres_data:
+            df_genres = pd.DataFrame(genres_data)
+            df_genres.to_excel(writer, sheet_name='Популярные жанры', index=False)
+
+        # Сохраняем Excel файл
+        writer.close()
+        output.seek(0)
+
+        # Создаем HTTP ответ с файлом
+        response = HttpResponse(
+            output.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename=library_report_{start_date}_{end_date}.xlsx'
+        return response

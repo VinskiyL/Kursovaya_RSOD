@@ -11,7 +11,7 @@ from .views import (
     AuthorAdminView, AuthorAdminDetailView, AdminOrderDetailView,
     GenreAdminView, GenreAdminDetailView, AdminOrderListView,
     SendReaderEmailView, ReaderDetailView, ReaderListView,
-    ReaderAdminUpdateView
+    ReaderAdminUpdateView, GenerateReportView
 )
 
 urlpatterns = [
@@ -72,4 +72,7 @@ urlpatterns = [
     path('readers/', ReaderListView.as_view(), name='reader-list'),
     path('readers/<int:id>/', ReaderDetailView.as_view(), name='reader-detail'),
     path('readers/<int:id>/update/', ReaderAdminUpdateView.as_view(), name='reader-admin-update'),
+
+    #Отчёт
+    path('report/', GenerateReportView.as_view(), name='generate-report'),
 ]

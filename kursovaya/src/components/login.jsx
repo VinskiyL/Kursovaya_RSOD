@@ -4,8 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import apiClient from '../api/client'
 import { loginSuccess } from './store/userSlice'
 import './login.css'
-//TODO хешировать пароль перед отправкой
-//TODO выводить сообщения с бэка
+
 function Login() {
   const [formData, setFormData] = useState({ login: '', password: '' })
   const [error, setError] = useState('')

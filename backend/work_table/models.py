@@ -165,6 +165,7 @@ class OrderCatalog(models.Model):
     class Meta:
         managed = True
         db_table = 'Order_catalog'
+        unique_together = [('title', 'author_surname')]
 
 
 class ReadersCatalog(models.Model):

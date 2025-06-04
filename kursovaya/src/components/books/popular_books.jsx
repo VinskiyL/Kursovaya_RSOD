@@ -8,7 +8,7 @@ const PopularBooks = () => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        apiClient.get('/api/books/popular/')
+        apiClient.get('/books/popular/')
             .then(response => {
                 setBooks(response.data);
                 setLoading(false);

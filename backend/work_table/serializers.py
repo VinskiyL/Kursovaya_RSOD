@@ -191,7 +191,7 @@ class BookDetailSerializer(BookListSerializer):
 
 
 class PopularBookSerializer(BookListSerializer):
-    active_bookings = serializers.IntegerField(read_only=True)
+    active_bookings = serializers.IntegerField(read_only=True)  # Количество выданных экземпляров
 
     class Meta(BookListSerializer.Meta):
         fields = BookListSerializer.Meta.fields + ['active_bookings']
@@ -460,3 +460,12 @@ class ReaderAdminUpdateSerializer(serializers.ModelSerializer):
         if value and value < timezone.now().date():
             raise serializers.ValidationError("Дата перерегистрации не может быть в прошлом")
         return value
+
+class ReportPeriodSerializer(serializers.Serializer):
+    start_date = serializers.DateField(required=True)
+    end_date = serializers.DateField(required=True)
+
+    def validate(self, data):
+        if data['start_date'] > data['end_date']:
+            raise serializers.ValidationError("Дата начала не может быть позже даты окончания")
+        return data
