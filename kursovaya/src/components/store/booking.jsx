@@ -104,6 +104,7 @@ const Booking = () => {
 
     return (
         <div className="main_order_container">
+            <h2>Мои бронирования</h2>
             <div className="search-controls">
                 <input
                     type="text"
@@ -120,8 +121,6 @@ const Booking = () => {
                     Найти
                 </button>
             </div>
-
-            <h2>Мои бронирования</h2>
 
             {pagination.total > pagination.pageSize && (
                 <div className="pagination">

@@ -1,5 +1,8 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.renderers import JSONRenderer
+from rest_framework.response import Response
+from rest_framework import status
 from rest_framework import status
 from django.contrib.auth.hashers import check_password, make_password
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
@@ -1020,6 +1023,7 @@ class GenreListView(AdminPermissionMixin, generics.ListAPIView):
     """
     Список всех жанров для выбора при создании/редактировании книги
     """
+
     queryset = GenresCatalog.objects.all()
     serializer_class = GenreSerializer
     pagination_class = BookPagination
@@ -1370,11 +1374,36 @@ class SendReaderEmailView(AdminPermissionMixin, APIView):
 
 
 class ReaderListView(AdminPermissionMixin, generics.ListAPIView):
+    renderer_classes = [JSONRenderer]  # Явно указываем рендерер
     queryset = ReadersCatalog.objects.all()
     serializer_class = ReaderListSerializer
     pagination_class = BookPagination
     filter_backends = [DjangoFilterBackend]
     filterset_class = DebtorFilter
+
+    def list(self, request, *args, **kwargs):
+        try:
+            # Проверка прав администратора
+            self.check_admin_permissions(request)
+
+            # Стандартная обработка запроса
+            queryset = self.filter_queryset(self.get_queryset())
+            page = self.paginate_queryset(queryset)
+
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
+
+            serializer = self.get_serializer(queryset, many=True)
+            return Response(serializer.data)
+
+        except PermissionDenied as e:
+            # Возвращаем ошибку с явным указанием рендерера
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_403_FORBIDDEN,
+                content_type='application/json'  # Явно указываем тип контента
+            )
 
 class ReaderDetailView(AdminPermissionMixin, generics.RetrieveAPIView):
     queryset = ReadersCatalog.objects.all()

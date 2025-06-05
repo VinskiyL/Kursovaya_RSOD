@@ -91,6 +91,7 @@ const Order = () => {
 
     return (
         <div className="main_order_container">
+            <h2>Мои заказы</h2>
             <div className="search-controls">
                 <input
                     type="text"
@@ -107,8 +108,6 @@ const Order = () => {
                     Найти
                 </button>
             </div>
-
-            <h2>Мои заказы</h2>
 
             <Link to="/new_order" className="create-order-button">
                 Создать новый заказ
