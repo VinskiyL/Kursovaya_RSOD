@@ -4,6 +4,7 @@ import apiClient from '../../api/client';
 
 const Authors_adm = () => {
     const [authors, setAuthors] = useState([]);
+    const [allAuthors, setAllAuthors] = useState([]); // Добавляем состояние для хранения всех авторов
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
@@ -15,7 +16,7 @@ const Authors_adm = () => {
     });
     const [offlineMode, setOfflineMode] = useState(false);
 
-    const fetchAuthors = async (page = 1, search = '', searchField = 'surname') => {
+    const fetchAuthors = async (page = 1) => {
         setLoading(true);
         setError('');
         try {
@@ -24,17 +25,8 @@ const Authors_adm = () => {
                 page_size: pagination.pageSize
             };
 
-            if (search) {
-                if (searchField === 'name') {
-                    params['author_name'] = search;
-                } else if (searchField === 'full_name') {
-                    params['search'] = search;
-                } else {
-                    params['author_surname'] = search;
-                }
-            }
-
             const response = await apiClient.get('/admin/authors-list/', { params });
+            setAllAuthors(response.data.results || response.data); // Сохраняем всех авторов
             setAuthors(response.data.results || response.data);
             setPagination({
                 ...pagination,
@@ -56,18 +48,35 @@ const Authors_adm = () => {
     };
 
     const handleSearchSubmit = () => {
-        fetchAuthors(1, searchTerm, searchBy);
+        if (!searchTerm) {
+            setAuthors(allAuthors);
+            return;
+        }
+
+        const filtered = allAuthors.filter(author => {
+            if (searchBy === 'surname') {
+                return author.author_surname.toLowerCase().includes(searchTerm.toLowerCase());
+            } else if (searchBy === 'name') {
+                return author.author_name.toLowerCase().includes(searchTerm.toLowerCase());
+            } else if (searchBy === 'full_name') {
+                const fullName = `${author.author_surname} ${author.author_name} ${author.author_patronymic || ''}`.toLowerCase();
+                return fullName.includes(searchTerm.toLowerCase());
+            }
+            return true;
+        });
+
+        setAuthors(filtered);
     };
 
     const handlePageChange = (newPage) => {
-        fetchAuthors(newPage, searchTerm, searchBy);
+        fetchAuthors(newPage);
     };
 
     const handleDelete = async (authorId) => {
         if (window.confirm('Вы уверены, что хотите удалить этого автора?')) {
             try {
                 await apiClient.delete(`/admin/authors/${authorId}/`);
-                fetchAuthors(pagination.page, searchTerm, searchBy);
+                fetchAuthors(pagination.page);
             } catch (err) {
                 setError('Ошибка при удалении автора');
                 console.error('Ошибка:', err);

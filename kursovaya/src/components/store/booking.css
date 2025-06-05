@@ -286,3 +286,26 @@
         font-size: 0.85em;
     }
 }
+
+/* Обновлённые стили для подчёркивания во всю ширину */
+.main_order_container h2 {
+    font-size: 1.8em;
+    color: #002137;
+    margin-bottom: 25px;
+    text-align: center;
+    font-weight: 600;
+    position: relative;
+    padding-bottom: 15px;
+}
+
+.main_order_container h2::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;  /* Изменено с 50% на 0 */
+    width: 100%;  /* Изменено с 80px на 100% */
+    transform: none;  /* Убрано transform */
+    height: 2px;
+    background-color: #a3c1bf;
+    border-radius: 2px;
+}

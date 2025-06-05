@@ -35,9 +35,9 @@ const Registration = () => {
     // Опции для поля образования
     const educationOptions = [
         { value: '', label: 'Выберите образование' },
-        { value: 'secondary', label: 'Среднее' },
-        { value: 'special', label: 'Среднее специальное' },
-        { value: 'higher', label: 'Высшее' }
+        { value: 'Среднее', label: 'Среднее' },
+        { value: 'Среднее специальное', label: 'Среднее специальное' },
+        { value: 'Высшее', label: 'Высшее' }
     ];
 
     // Конфигурация полей формы

@@ -44,6 +44,37 @@ from .serializers import ReportPeriodSerializer
 
 logger = logging.getLogger(__name__)
 
+class AdminPermissionMixin:
+    """
+    Миксин для проверки прав администратора через куки
+    """
+    def check_admin_permissions(self, request):
+        access_token = request.COOKIES.get('access_token')
+        if not access_token:
+            logger.warning("Access token not found in cookies")
+            raise PermissionDenied("Требуется авторизация")
+
+        try:
+            token = AccessToken(access_token)
+            user = ReadersCatalog.objects.get(id=token['user_id'])
+            if not user.admin:
+                logger.warning(f"User {user.id} attempted admin access without permissions")
+                raise PermissionDenied("Требуются права администратора")
+            return user
+        except Exception as e:
+            logger.error(f"Error verifying admin permissions: {str(e)}")
+            raise PermissionDenied("Недействительный токен")
+
+    def dispatch(self, request, *args, **kwargs):
+        try:
+            self.check_admin_permissions(request)
+            return super().dispatch(request, *args, **kwargs)
+        except PermissionDenied as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
 class PopularBooksView(generics.ListAPIView):
     serializer_class = PopularBookSerializer
     pagination_class = None
@@ -841,37 +872,6 @@ class OrderListView(APIView):
             return Response(
                 {"detail": "Ошибка сервера при удалении"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-class AdminPermissionMixin:
-    """
-    Миксин для проверки прав администратора через куки
-    """
-    def check_admin_permissions(self, request):
-        access_token = request.COOKIES.get('access_token')
-        if not access_token:
-            logger.warning("Access token not found in cookies")
-            raise PermissionDenied("Требуется авторизация")
-
-        try:
-            token = AccessToken(access_token)
-            user = ReadersCatalog.objects.get(id=token['user_id'])
-            if not user.admin:
-                logger.warning(f"User {user.id} attempted admin access without permissions")
-                raise PermissionDenied("Требуются права администратора")
-            return user
-        except Exception as e:
-            logger.error(f"Error verifying admin permissions: {str(e)}")
-            raise PermissionDenied("Недействительный токен")
-
-    def dispatch(self, request, *args, **kwargs):
-        try:
-            self.check_admin_permissions(request)
-            return super().dispatch(request, *args, **kwargs)
-        except PermissionDenied as e:
-            return Response(
-                {"detail": str(e)},
-                status=status.HTTP_403_FORBIDDEN
             )
 
 class StatisticsView(APIView):

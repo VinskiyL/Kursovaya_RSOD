@@ -83,17 +83,12 @@ function New_book() {
    const onFinish = async (values) => {
      try {
        setLoading(true);
-
        // 1. Подготовка данных
        const data = {
          ...values,
          // Гарантируем, что author_ids и genre_ids будут массивами
-         author_ids: Array.isArray(values.author_ids)
-           ? values.author_ids.value
-           : [values.author_ids.value].filter(Boolean),
-         genre_ids: Array.isArray(values.genre_ids)
-           ? values.genre_ids
-           : [values.genre_ids].filter(Boolean),
+         author_ids: values.author_ids,
+         genre_ids: values.genre_ids,
          // Для новых книг устанавливаем quantity_remaining = quantity_total
          quantity_remaining: id ? values.quantity_remaining : values.quantity_total
        };
@@ -111,7 +106,6 @@ function New_book() {
        if (fileList[0] instanceof File) {
          const coverForm = new FormData();
          coverForm.append('cover', fileList[0]);
-         console.log(response.data)
          await apiClient.patch(
                `/admin/books/${response.data.id}/cover/`,
                coverForm,
@@ -121,7 +115,7 @@ function New_book() {
                  },
                }
              );
-       } else{
+       } else if(id){
          await apiClient.delete(`/admin/books/${response.data.id}/cover/`);
        }
 
@@ -205,6 +199,7 @@ function New_book() {
                 <Form.Item
                     label="Место издания"
                     name="place_publication"
+                    rules={[{ required: true, message: 'Пожалуйста, укажите место издания!' }]}
                 >
                     <Input />
                 </Form.Item>
@@ -212,6 +207,7 @@ function New_book() {
                 <Form.Item
                     label="Информация об издании"
                     name="information_publication"
+                    rules={[{ required: true, message: 'Пожалуйста, введите информацию!' }]}
                 >
                     <TextArea rows={3} />
                 </Form.Item>
@@ -225,6 +221,7 @@ function New_book() {
                             message: 'Год должен состоять из 4 цифр'
                         }
                     ]}
+                    rules={[{ required: true, message: 'Пожалуйста, укажите год!' }]}
                 >
                     <Input />
                 </Form.Item>
@@ -232,6 +229,7 @@ function New_book() {
                 <Form.Item
                     label="Объем (страниц)"
                     name="volume"
+                    rules={[{ required: true, message: 'Пожалуйста, укажите количество!' }]}
                 >
                     <InputNumber min={1} />
                 </Form.Item>

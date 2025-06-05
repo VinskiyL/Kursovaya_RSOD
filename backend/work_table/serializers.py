@@ -74,6 +74,7 @@ class BookingCreateSerializer(serializers.ModelSerializer):
         }
 
     def validate(self, data):
+        book = data['index']
         # Проверяем доступность книг при создании брони
         if data['index'].quantity_remaining < data['quantity']:
             raise serializers.ValidationError(

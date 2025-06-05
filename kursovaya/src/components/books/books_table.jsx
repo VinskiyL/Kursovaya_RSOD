@@ -99,6 +99,7 @@ const Books = () => {
 
     return (
         <div className="main_order_container">
+            <h2>Книги</h2>
             {/* Поисковая форма */}
             <div className="search-controls">
                 <select

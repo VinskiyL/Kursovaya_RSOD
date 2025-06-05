@@ -1,7 +1,9 @@
 from django.db import models
 from django.utils import timezone
 from datetime import timedelta
-
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
+from django.core.cache import cache
 
 class AuthorsBooks(models.Model):
     id = models.AutoField(primary_key=True)
@@ -23,7 +25,6 @@ class AuthorsCatalog(models.Model):
     class Meta:
         managed = True
         db_table = 'Authors_catalog'
-
 
 class BookingCatalog(models.Model):
     index = models.ForeignKey('BooksCatalog', models.PROTECT)
@@ -49,6 +50,13 @@ class BookingCatalog(models.Model):
             if not self.date_return:
                 self.date_return = self.date_issue + timedelta(days=30)
 
+            existing_booking = BookingCatalog.objects.filter(
+                index=self.index,
+                reader=self.reader
+            ).exists()
+
+            if existing_booking:
+                raise ValueError("У пользователя уже есть бронирование для этой книги")
             # При создании новой записи сразу вычитаем количество
             if self.index.quantity_remaining < self.quantity:
                 raise ValueError("Недостаточно экземпляров книги для бронирования")
@@ -91,6 +99,10 @@ class BookingCatalog(models.Model):
         db_table = 'Booking_catalog'
         unique_together = [('index', 'reader')]
 
+@receiver([post_save, post_delete], sender=BookingCatalog)
+def invalidate_popular_books_cache(sender, instance, **kwargs):
+    cache_key = 'popular_books_top10_issued'
+    cache.delete(cache_key)  # Удаляем кэш при изменении бронирования
 
 class BooksCatalog(models.Model):
     id = models.AutoField(primary_key=True)  # Автоматический числовой первичный ключ
@@ -165,7 +177,7 @@ class OrderCatalog(models.Model):
     class Meta:
         managed = True
         db_table = 'Order_catalog'
-        unique_together = [('title', 'author_surname')]
+        unique_together = [('title', 'reader')]
 
 
 class ReadersCatalog(models.Model):

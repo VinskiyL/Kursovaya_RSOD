@@ -4,6 +4,7 @@ import apiClient from '../../api/client';
 
 const Genres_adm = () => {
     const [genres, setGenres] = useState([]);
+    const [allGenres, setAllGenres] = useState([]); // Добавляем состояние для всех жанров
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
@@ -14,7 +15,7 @@ const Genres_adm = () => {
     });
     const [offlineMode, setOfflineMode] = useState(false);
 
-    const fetchGenres = async (page = 1, search = '') => {
+    const fetchGenres = async (page = 1) => {
         setLoading(true);
         setError('');
         try {
@@ -23,11 +24,8 @@ const Genres_adm = () => {
                 page_size: pagination.pageSize
             };
 
-            if (search) {
-                params['search'] = search;
-            }
-
             const response = await apiClient.get('/admin/genres-list/', { params });
+            setAllGenres(response.data.results || response.data); // Сохраняем все жанры
             setGenres(response.data.results || response.data);
             setPagination({
                 ...pagination,
@@ -49,18 +47,26 @@ const Genres_adm = () => {
     };
 
     const handleSearchSubmit = () => {
-        fetchGenres(1, searchTerm);
+        if (!searchTerm) {
+            setGenres(allGenres);
+            return;
+        }
+
+        const filtered = allGenres.filter(genre =>
+            genre.name.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+        setGenres(filtered);
     };
 
     const handlePageChange = (newPage) => {
-        fetchGenres(newPage, searchTerm);
+        fetchGenres(newPage);
     };
 
     const handleDelete = async (genreId) => {
         if (window.confirm('Вы уверены, что хотите удалить этот жанр?')) {
             try {
                 await apiClient.delete(`/admin/genres/${genreId}/`);
-                fetchGenres(pagination.page, searchTerm);
+                fetchGenres(pagination.page);
             } catch (err) {
                 setError('Ошибка при удалении жанра');
                 console.error('Ошибка:', err);
