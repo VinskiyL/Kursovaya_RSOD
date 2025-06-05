@@ -118,7 +118,6 @@ class BookListSerializer(serializers.ModelSerializer):
             'quantity_total', 'quantity_remaining', 'available',
             'cover'
         ]
-        read_only_fields = fields
 
     def get_authors(self, obj):
         return AuthorShortSerializer(obj.authors(), many=True).data
@@ -363,7 +362,7 @@ class BookCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = BooksCatalog
         fields = [
-            'index', 'title', 'place_publication', 'information_publication',
+            'id', 'index', 'title', 'place_publication', 'information_publication',
             'volume', 'quantity_total', 'date_publication', 'cover',
             'author_ids', 'genre_ids'
         ]
@@ -469,3 +468,4 @@ class ReportPeriodSerializer(serializers.Serializer):
         if data['start_date'] > data['end_date']:
             raise serializers.ValidationError("Дата начала не может быть позже даты окончания")
         return data
+

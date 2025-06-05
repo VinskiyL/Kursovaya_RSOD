@@ -26,8 +26,8 @@ function New_book() {
                     apiClient.get('/admin/genres-list/')
                 ]);
 
-                setAuthors(authorsRes.data);
-                setGenres(genresRes.data);
+                setAuthors(authorsRes.data || []);
+                setGenres(genresRes.data || []);
 
                 if (id) {
                     const bookRes = await apiClient.get(`/admin/books/${id}/`);
@@ -35,7 +35,10 @@ function New_book() {
 
                     form.setFieldsValue({
                         ...bookData,
-                        author_ids: bookData.authors.map(a => a.id),
+                        author_ids: bookData.authors.map(a => ({
+                            value: a.id,
+                            label: `${a.author_surname} ${a.author_name}`
+                        })),
                         genre_ids: bookData.genres.map(g => g.id)
                     });
 
@@ -52,6 +55,8 @@ function New_book() {
             } catch (error) {
                 message.error('Ошибка загрузки данных');
                 console.error('Ошибка загрузки данных:', error);
+                setAuthors([]);
+                setGenres([]);
             } finally {
                 setLoading(false);
             }
@@ -84,8 +89,8 @@ function New_book() {
          ...values,
          // Гарантируем, что author_ids и genre_ids будут массивами
          author_ids: Array.isArray(values.author_ids)
-           ? values.author_ids
-           : [values.author_ids].filter(Boolean),
+           ? values.author_ids.value
+           : [values.author_ids.value].filter(Boolean),
          genre_ids: Array.isArray(values.genre_ids)
            ? values.genre_ids
            : [values.genre_ids].filter(Boolean),
@@ -106,8 +111,17 @@ function New_book() {
        if (fileList[0] instanceof File) {
          const coverForm = new FormData();
          coverForm.append('cover', fileList[0]);
-         await apiClient.patch(`/admin/books/${response.data.id}/cover/`, coverForm);
-       } else if (fileList.length === 0 && existingCover) {
+         console.log(response.data)
+         await apiClient.patch(
+               `/admin/books/${response.data.id}/cover/`,
+               coverForm,
+               {
+                 headers: {
+                   "Content-Type": "multipart/form-data", // Обязательно для загрузки файлов!
+                 },
+               }
+             );
+       } else{
          await apiClient.delete(`/admin/books/${response.data.id}/cover/`);
        }
 
@@ -163,13 +177,8 @@ function New_book() {
                     <Select
                         mode="multiple"
                         placeholder="Выберите авторов"
-                        showSearch
-                        optionFilterProp="children"
-                        filterOption={(input, option) =>
-                            option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
-                        }
                     >
-                        {authors.map(author => (
+                        {authors.results.map(author => (
                             <Option key={author.id} value={author.id}>
                                 {`${author.author_surname} ${author.author_name} ${author.author_patronymic || ''}`}
                             </Option>
@@ -185,7 +194,7 @@ function New_book() {
                         mode="multiple"
                         placeholder="Выберите жанры"
                     >
-                        {genres.map(genre => (
+                        {genres.results.map(genre => (
                             <Option key={genre.id} value={genre.id}>
                                 {genre.name}
                             </Option>

@@ -139,7 +139,7 @@
     flex: 1;
 }
 
-.email-button, .details-button {
+.email-button, .details-button, .delete-button {
     background-color: #a3c1bf;
     color: white;
 }
@@ -149,6 +149,10 @@
 }
 
 .details-button:hover {
+    background-color: #8cb0ad;;
+}
+
+.delete-button:hover {
     background-color: #8cb0ad;;
 }
 

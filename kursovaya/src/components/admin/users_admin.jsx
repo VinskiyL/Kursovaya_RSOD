@@ -92,6 +92,19 @@ const Users_adm = () => {
         }
     };
 
+    const handleViewDelete = async (userId) => {
+        if (window.confirm('Вы уверены, что хотите удалить этого пользователя?')) {
+            try {
+                await apiClient.delete(`readers/${userId}/delete/`);
+                alert('Пользователь успешно удален');
+                fetchUsers(); // Обновляем список пользователей после удаления
+            } catch (err) {
+                setError('Ошибка при удалении пользователя');
+                console.error('Ошибка:', err);
+            }
+        }
+    };
+
     const handleViewDetails = (userId) => {
         navigate(`/users_detail/${userId}`);
     };
@@ -220,6 +233,12 @@ const Users_adm = () => {
                                         onClick={() => handleViewDetails(user.id)}
                                     >
                                         Подробнее
+                                    </button>
+                                    <button
+                                        className="action-button delete-button"
+                                        onClick={() => handleViewDelete(user.id)}
+                                    >
+                                        Удалить
                                     </button>
                                 </div>
                             </div>

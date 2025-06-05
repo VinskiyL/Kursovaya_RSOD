@@ -1533,3 +1533,101 @@ class GenerateReportView(APIView):
         )
         response['Content-Disposition'] = f'attachment; filename=library_report_{start_date}_{end_date}.xlsx'
         return response
+
+
+class ReaderAdminDeleteView(AdminPermissionMixin, generics.DestroyAPIView):
+    """
+    Удаление пользователя администратором
+    """
+    queryset = ReadersCatalog.objects.all()
+    serializer_class = ReaderDetailSerializer
+    lookup_field = 'id'
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+
+        # Проверяем, что администратор не пытается удалить самого себя
+        if instance.id == request.user.id:
+            return Response(
+                {"detail": "Вы не можете удалить свою учетную запись"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Проверяем, есть ли активные бронирования у пользователя
+        active_bookings = BookingCatalog.objects.filter(
+            reader=instance,
+            issued=True,
+            returned=False
+        ).exists()
+
+        if active_bookings:
+            return Response(
+                {"detail": "Невозможно удалить пользователя, у которого есть активные бронирования"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Проверяем, есть ли необработанные заказы у пользователя
+        active_orders = OrderCatalog.objects.filter(
+            reader=instance,
+            confirmed=False
+        ).exists()
+
+        if active_orders:
+            return Response(
+                {"detail": "Невозможно удалить пользователя, у которого есть необработанные заказы"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        self.perform_destroy(instance)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class BookCoverView(APIView):
+    """
+    Обработка обложки книги отдельным эндпоинтом
+    """
+
+    def patch(self, request, id):
+        try:
+            book = BooksCatalog.objects.get(id=id)
+        except BooksCatalog.DoesNotExist:
+            return Response(
+                {"detail": "Книга не найдена"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if 'cover' not in request.FILES:
+            return Response(
+                {"detail": "Файл обложки не предоставлен"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        book.cover = request.FILES['cover']
+        book.save()
+
+        return Response(
+            {"detail": "Обложка успешно обновлена", "cover_url": book.cover.url},
+            status=status.HTTP_200_OK
+        )
+
+    def delete(self, request, id):
+        try:
+            book = BooksCatalog.objects.get(id=id)
+        except BooksCatalog.DoesNotExist:
+            return Response(
+                {"detail": "Книга не найдена"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if not book.cover:
+            return Response(
+                {"detail": "У книги нет обложки"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        book.cover.delete(save=True)  # Удаляем файл и сохраняем модель
+
+        return Response(
+            {"detail": "Обложка успешно удалена"},
+            status=status.HTTP_204_NO_CONTENT
+        )

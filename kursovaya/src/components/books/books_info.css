@@ -308,3 +308,50 @@
         box-sizing: border-box;
     }
 }
+
+.date-selector {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.date-selector label {
+  font-weight: 500;
+  color: #002137;
+  white-space: nowrap;
+}
+
+.date-input {
+  padding: 10px 15px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 1em;
+  font-family: 'Poppins', sans-serif;
+  color: #002137;
+  transition: all 0.3s ease;
+  min-width: 160px;
+}
+
+.date-input:focus {
+  outline: none;
+  border-color: #a3c1bf;
+  box-shadow: 0 0 0 3px rgba(163, 193, 191, 0.2);
+}
+
+/* Адаптивные стили для даты */
+@media (max-width: 768px) {
+  .date-selector {
+    width: 100%;
+  }
+
+  .date-input {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .date-input {
+    padding: 8px 12px;
+    font-size: 0.95em;
+  }
+}

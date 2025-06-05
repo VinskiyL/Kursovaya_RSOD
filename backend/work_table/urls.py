@@ -7,11 +7,11 @@ from .views import (
     BookingDetailView, BookingListCreateView, UserBookingsView,
     ProfileUpdateView, OrderListView, StatisticsView,
     BookAdminListView, BookAdminDetailView, BookingAdminDetailView,
-    AuthorListView, GenreListView, BookingAdminView,
+    AuthorListView, GenreListView, BookingAdminView, BookCoverView,
     AuthorAdminView, AuthorAdminDetailView, AdminOrderDetailView,
     GenreAdminView, GenreAdminDetailView, AdminOrderListView,
     SendReaderEmailView, ReaderDetailView, ReaderListView,
-    ReaderAdminUpdateView, GenerateReportView
+    ReaderAdminUpdateView, GenerateReportView, ReaderAdminDeleteView
 )
 
 urlpatterns = [
@@ -54,6 +54,7 @@ urlpatterns = [
     # Книги
     path('admin/books/', BookAdminListView.as_view(), name='admin-books-list'),
     path('admin/books/<int:id>/', BookAdminDetailView.as_view(), name='admin-books-detail'),
+    path('admin/books/<int:id>/cover/', BookCoverView.as_view(), name='admin-books-cover'),
 
     # Авторы
     path('admin/authors/', AuthorAdminView.as_view(), name='admin-authors-list'),
@@ -72,6 +73,7 @@ urlpatterns = [
     path('readers/', ReaderListView.as_view(), name='reader-list'),
     path('readers/<int:id>/', ReaderDetailView.as_view(), name='reader-detail'),
     path('readers/<int:id>/update/', ReaderAdminUpdateView.as_view(), name='reader-admin-update'),
+    path('readers/<int:id>/delete/', ReaderAdminDeleteView.as_view(), name='admin-delete-reader'),
 
     #Отчёт
     path('report/', GenerateReportView.as_view(), name='generate-report'),
